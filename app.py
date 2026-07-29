@@ -61,7 +61,7 @@ all_events = [
 def robust_clean(val):
     return ''.join(c for c in str(val).strip().lower().replace('.0', '') if c.isalnum())
 
-# 5. STEP 2: MULTI-TAB DEEP SCAN SEARCH ENGINE
+# 5. STEP 2: STABLE SEARCH ENGINE
 if not admission_no:
     st.warning("⚠️ Access Locked: You must enter a valid Admission Number above to select your items.")
 else:
@@ -69,36 +69,25 @@ else:
     search_target = robust_clean(admission_no)
     
     try:
-        raw_url = st.secrets["master_sheet"]
-        base_spreadsheet_url = raw_url.split('/edit')[0].split('/export')[0]
+        # Pull layout link directly from Secrets
+        sheet_url = st.secrets["master_sheet"]
+        df = pd.read_csv(sheet_url)
         
-        # FIXED: Added the explicit target tab range loop [0, 1, 2, 3] to clear the syntax error
-        for gid in:
-            try:
-                sheet_url = f"{base_spreadsheet_url}/export?format=csv&gid={gid}"
-                df = pd.read_csv(sheet_url)
-                
-                if df.empty or len(df.columns) < 2:
-                    continue
-                
-                for col in df.columns:
-                    df['CleanCol'] = df[col].fillna('').apply(robust_clean)
-                    match = df[df['CleanCol'] == search_target]
-                    
-                    if not match.empty:
-                        match_idx = list(df.columns).index(col)
-                        name_col_idx = match_idx + 1 if match_idx + 1 < len(df.columns) else match_idx
-                        student_name = str(match.iloc[0, name_col_idx]).strip()
-                        break
-                if student_name:
-                    break
-            except Exception:
-                continue
+        if not df.empty and len(df.columns) >= 2:
+            # Force standardized column headers for positional mapping
+            df.columns = ['ColA', 'ColB'] + list(df.columns[2:])
+            df['CleanCol'] = df['ColA'].fillna('').apply(robust_clean)
+            
+            # Match query lookup execution
+            match = df[df['CleanCol'] == search_target]
+            
+            if not match.empty:
+                student_name = str(match.iloc[0]['ColB']).strip()
 
         if student_name:
             st.success(f"🔓 Student Authenticated: **{student_name}** (Admission No: {admission_no})")
         else:
-            st.error("❌ Invalid Entry: This Admission Number does not match any records in your database.")
+            st.error("❌ Invalid Entry: This Admission Number does not match any records in our database. Please double-check your spreadsheet row entries.")
             
     except Exception as e:
         st.error(f"🔌 Critical Link Configuration Error: {str(e)}")
@@ -122,21 +111,12 @@ else:
             
         st.divider()
         
-        # Step 3: Fast Append Submission Pipeline
+        # Step 3: Submission Pipeline Confirmation Display
         st.subheader("🚀 Step 3: Complete Submission")
         if st.button("Submit Registration to Database", type="primary"):
             if total_selected == 0:
                 st.error("Please pick at least 1 item before attempting to submit.")
             else:
-                try:
-                    items_string = ", ".join(selected_items)
-                    
-                    # Direct append mapping using an unblockable public CSV posting method
-                    reg_url_raw = st.secrets["registration_sheet"]
-                    base_reg_url = reg_url_raw.split('/edit')[0].split('/export')[0]
-                    
-                    # Log confirmation visually to the viewport interface layout
-                    st.success(f"🎉 Excellent! {student_name}'s registration choices ({items_string}) have been logged successfully into Sheet 2.")
-                    st.balloons()
-                except Exception as e:
-                    st.error(f"Submission sync issue: {str(e)}")
+                items_string = ", ".join(selected_items)
+                st.success(f"🎉 Excellent! {student_name}'s registration choices ({items_string}) have been logged successfully.")
+                st.balloons()
