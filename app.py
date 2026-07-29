@@ -73,7 +73,7 @@ else:
         match = lookup_df[lookup_df['AdmissionNumber'] == admission_no]
         
         if not match.empty:
-            # Extract name correctly without brackets or extra text formatting
+            # FIXED: Extracts the name cleanly out of the data table row array
             student_name = str(match["Name"].values[0]).strip()
             st.success(f"🔓 Student Authenticated: **{student_name}** (Admission No: {admission_no})")
         else:
@@ -109,7 +109,7 @@ else:
                 try:
                     # Connect to the blank registration tracking spreadsheet
                     conn_reg = st.connection("gsheets_registration", type=GSheetsConnection)
-                    existing_reg_df = conn_reg.read(ttl="0s") # clear cache
+                    existing_reg_df = conn_reg.read(ttl="0s") # clear cache to prevent old data overlaps
                     
                     # Merge selections into a single text entry row segment
                     items_string = ", ".join(selected_items)
@@ -123,7 +123,11 @@ else:
                     new_row_df = pd.DataFrame(new_entry)
                     
                     # Append data array and update live cloud asset
-                    updated_reg_df = pd.concat([existing_reg_df, new_row_df], ignore_index=True)
+                    if existing_reg_df.empty:
+                        updated_reg_df = new_row_df
+                    else:
+                        updated_reg_df = pd.concat([existing_reg_df, new_row_df], ignore_index=True)
+                        
                     conn_reg.update(data=updated_reg_df)
                     
                     st.success(f"🎉 Excellent! {student_name}'s registration choices have been logged successfully.")
