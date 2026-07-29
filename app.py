@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import base64
+import time
 
 # 1. Page Configuration
 st.set_page_config(page_title="Arts Festival Registration Portal", page_icon="🎨", layout="centered")
@@ -57,33 +58,40 @@ all_events = [
     "Versification (Malayalam)", "Versification (Hindi)"
 ]
 
-# 5. STEP 2: LOOKUP NAME DIRECTLY VIA HARDCODED POSITION MAPPING
+# 5. STEP 2: LOOKUP NAME WITH BUILT-IN RETRY PROTECTION
 if not admission_no:
     st.warning("⚠️ Access Locked: You must enter a valid Admission Number above to select your items.")
 else:
     student_name = ""
-    try:
-        # Bypasses system caching completely by adding a unique numerical stamp to the URL request
-        import time
-        lookup_url = f"https://google.com{int(time.time())}"
-        
-        # Load the layout
-        lookup_df = pd.read_csv(lookup_url)
-        
-        # Force rename whatever columns are in positions 0 and 1 to guarantee matching
-        lookup_df.columns = ['ColA', 'ColB'] + list(lookup_df.columns[2:])
-        
-        # Standardize strings dynamically to match user inputs
-        lookup_df['ColA'] = lookup_df['ColA'].astype(str).str.strip()
-        match = lookup_df[lookup_df['ColA'] == admission_no]
-        
-        if not match.empty:
-            student_name = str(match["ColB"].values[0]).strip()
-            st.success(f"🔓 Student Authenticated: **{student_name}** (Admission No: {admission_no})")
-        else:
-            st.error("❌ Invalid Entry: This Admission Number does not exist in our master system. Please check your spelling.")
-    except Exception as e:
-        st.error(f"⚠️ Technical Link Connection Error: {str(e)}")
+    lookup_df = None
+    
+    # Network safety-net: Attempt connection up to 3 times if server spikes
+    for attempt in range(3):
+        try:
+            lookup_url = f"https://google.com{int(time.time())}"
+            lookup_df = pd.read_csv(lookup_url)
+            break # Success! Break out of the retry loophole
+        except Exception:
+            if attempt < 2:
+                time.sleep(1) # Wait a second before trying again
+                continue
+            else:
+                st.error("📡 Google Servers are temporarily busy or lagging. Please refresh the page in a few moments.")
+
+    # Process data if sheet load completed successfully
+    if lookup_df is not pd.DataFrame(None) and lookup_df is not None:
+        try:
+            lookup_df.columns = ['ColA', 'ColB'] + list(lookup_df.columns[2:])
+            lookup_df['ColA'] = lookup_df['ColA'].astype(str).str.strip()
+            match = lookup_df[lookup_df['ColA'] == admission_no]
+            
+            if not match.empty:
+                student_name = str(match["ColB"].values[0]).strip()
+                st.success(f"🔓 Student Authenticated: **{student_name}** (Admission No: {admission_no})")
+            else:
+                st.error("❌ Invalid Entry: This Admission Number does not exist in our master system. Please check your spelling.")
+        except Exception as e:
+            st.error(f"⚠️ Structural Formatting Error: {str(e)}")
 
     # Continue execution only if a valid student is returned from sheet 1
     if student_name:
