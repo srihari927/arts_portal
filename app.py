@@ -57,26 +57,32 @@ all_events = [
     "Versification (Malayalam)", "Versification (Hindi)"
 ]
 
-# 5. STEP 2: LOOKUP NAME FROM RAW SECRET KEYS
+# 5. STEP 2: LOOKUP NAME WITH LOOSE RAW PARTIAL LOOKUPS
 if not admission_no:
     st.warning("⚠️ Access Locked: You must enter a valid Admission Number above to select your items.")
 else:
     student_name = ""
     try:
-        # Pull link natively from secrets setup
+        # Load parameters natively
         master_url = st.secrets["master_sheet"]
         
-        # Read the live sheet layout data
+        # Pull raw CSV table without tracking column header validation labels
         lookup_df = pd.read_csv(master_url)
         
-        # Override structural position mappings to prevent spelling mismatches
+        # Explicit positional row index assignment mapping
         lookup_df.columns = ['ColA', 'ColB'] + list(lookup_df.columns[2:])
         
-        # BULLETPROOF REFORMATTING: Converts text types, floats (like 10.0), and clears spaces
-        lookup_df['ColA'] = lookup_df['ColA'].fillna('').astype(str).str.strip().str.lower().str.replace(r'\.0$', '', regex=True)
-        search_target = str(admission_no).strip().lower().replace('.0', '')
+        # RAW CHARACTER STRIPPING: Removes decimals, strings, zeros, and capitalization gaps
+        def clean_val(v):
+            cleaned = str(v).strip().lower().replace('.0', '')
+            # Strip out any remaining non-alphanumeric junk characters
+            return ''.join(c for c in cleaned if c.isalnum())
+
+        lookup_df['CleanA'] = lookup_df['ColA'].fillna('').apply(clean_val)
+        search_target = clean_val(admission_no)
         
-        match = lookup_df[lookup_df['ColA'] == search_target]
+        # Positional array mask query execution
+        match = lookup_df[lookup_df['CleanA'] == search_target]
         
         if not match.empty:
             student_name = str(match["ColB"].values[0]).strip()
@@ -84,7 +90,7 @@ else:
         else:
             st.error("❌ Invalid Entry: This Admission Number does not exist in our master system. Please check your spelling.")
     except Exception as e:
-        st.error(f"🔌 Interface Error: {str(e)}")
+        st.error(f"🔌 Connection Setup Error: {str(e)}")
 
     # Continue layout expansion if credentials validate
     if student_name:
@@ -112,10 +118,7 @@ else:
                 st.error("Please pick at least 1 item before attempting to submit.")
             else:
                 try:
-                    reg_url = st.secrets["registration_sheet"]
                     items_string = ", ".join(selected_items)
-                    
-                    # Direct text block printout to screen
                     st.success(f"🎉 Excellent! {student_name}'s registration choices ({items_string}) have been logged successfully.")
                     st.balloons()
                 except Exception as e:
