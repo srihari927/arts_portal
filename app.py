@@ -54,7 +54,7 @@ all_events = [
     "Digital Painting", "Poster Designing", "Cartoon", "Collage", "Essay Writing (English)",
     "Essay Writing (Malayalam)", "Essay Writing (Hindi)", "Story Writing (English)",
     "Story Writing (Malayalam)", "Story Writing (Hindi)", "Versification (English)",
-    "Versification (Malayalam)", "Versification (Hindi)"
+    "Violin Eastern", "Versification (Malayalam)", "Versification (Hindi)"
 ]
 
 # 5. STEP 2: LOOKUP NAME FROM RAW SECRET KEYS
@@ -66,19 +66,20 @@ else:
         # Pull links natively via raw dict keys
         master_url = st.secrets["master_sheet"]
         
-        # Stream CSV data directly from the web layout endpoint (Skip row tracking header issues)
+        # Stream CSV data directly from the web layout endpoint
         lookup_df = pd.read_csv(master_url)
         
         # Force assign standard structural headers to ensure placement indexing
         lookup_df.columns = ['ColA', 'ColB'] + list(lookup_df.columns[2:])
         
-        # BULLETPROOF DATA CONVERSION: Converts numerical floats (e.g. 1024.0) cleanly to text string formats
-        lookup_df['ColA'] = lookup_df['ColA'].fillna('').astype(str).str.replace(r'\.0$', '', regex=True).str.strip()
-        search_target = str(admission_no).replace(r'\.0$', '', regex=True).strip()
+        # FIXED: Corrected syntax for cleaning decimal trailing zero markings from cell data numbers
+        lookup_df['ColA'] = lookup_df['ColA'].fillna('').astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+        search_target = str(admission_no).strip().replace('.0', '')
         
         match = lookup_df[lookup_df['ColA'] == search_target]
         
         if not match.empty:
+            # Clean string parsing representation of values array format
             student_name = str(match["ColB"].values[0]).strip()
             st.success(f"🔓 Student Authenticated: **{student_name}** (Admission No: {admission_no})")
         else:
@@ -114,5 +115,6 @@ else:
                 items_string = ", ".join(selected_items)
                 st.success(f"🎉 Excellent! {student_name}'s registration choices ({items_string}) have been logged successfully.")
                 st.balloons()
+
 
 
