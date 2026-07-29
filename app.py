@@ -63,16 +63,20 @@ if not admission_no:
 else:
     student_name = ""
     try:
-        # Pull links natively via raw dict keys, completely bypassing GSheetsConnection blockers
+        # Pull links natively via raw dict keys
         master_url = st.secrets["master_sheet"]
         
-        # Stream CSV data directly from the web layout endpoint
+        # Stream CSV data directly from the web layout endpoint (Skip row tracking header issues)
         lookup_df = pd.read_csv(master_url)
         
-        # Clean up spatial string formatting parameters dynamically
+        # Force assign standard structural headers to ensure placement indexing
         lookup_df.columns = ['ColA', 'ColB'] + list(lookup_df.columns[2:])
-        lookup_df['ColA'] = lookup_df['ColA'].astype(str).str.strip()
-        match = lookup_df[lookup_df['ColA'] == admission_no]
+        
+        # BULLETPROOF DATA CONVERSION: Converts numerical floats (e.g. 1024.0) cleanly to text string formats
+        lookup_df['ColA'] = lookup_df['ColA'].fillna('').astype(str).str.replace(r'\.0$', '', regex=True).str.strip()
+        search_target = str(admission_no).replace(r'\.0$', '', regex=True).strip()
+        
+        match = lookup_df[lookup_df['ColA'] == search_target]
         
         if not match.empty:
             student_name = str(match["ColB"].values[0]).strip()
@@ -80,7 +84,7 @@ else:
         else:
             st.error("❌ Invalid Entry: This Admission Number does not exist in our master system. Please check your spelling.")
     except Exception as e:
-        st.error("🔌 Streamlit Core Syncing: Please update your Secrets panel to use the raw text structure format.")
+        st.error(f"🔌 Interface Error: {str(e)}")
 
     # Continue layout expansion if credentials validate
     if student_name:
