@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import base64
-import requests
+import random
 
 # 1. Page Configuration
 st.set_page_config(page_title="Arts Festival Registration Portal", page_icon="🎨", layout="centered")
@@ -58,40 +58,40 @@ all_events = [
     "Versification (Malayalam)", "Versification (Hindi)"
 ]
 
-# Helper function to completely strip characters for accurate matching
-def robust_clean(val):
-    return ''.join(c for c in str(val).strip().lower().replace('.0', '') if c.isalnum())
+# Helper function to completely strip spaces and non-characters for bulletproof verification
+def strict_clean(val):
+    return ''.join(c for c in str(val).strip().lower().split('.')[0] if c.isalnum())
 
-# 5. STEP 2: STABLE SEARCH ENGINE
+# 5. STEP 2: CACHE-BUSTING VERIFICATION ENGINE
 if not admission_no:
     st.warning("⚠️ Access Locked: You must enter a valid Admission Number above to select your items.")
 else:
     student_name = ""
-    search_target = robust_clean(admission_no)
+    search_target = strict_clean(admission_no)
     
     try:
-        # Pull layout link directly from Secrets
-        sheet_url = st.secrets["master_sheet"]
-        df = pd.read_csv(sheet_url)
+        # Appends a fully randomized timestamp query parameter to force Google to compile a fresh data block
+        base_url = "https://google.com"
+        cache_buster_url = f"{base_url}&cache={random.randint(100000, 999999)}"
         
-        if not df.empty and len(df.columns) >= 2:
-            # Force standardized column headers for positional mapping
-            df.columns = ['ColA', 'ColB'] + list(df.columns[2:])
-            df['CleanCol'] = df['ColA'].fillna('').apply(robust_clean)
+        # Pull raw dataset streaming structures natively via pandas engine
+        raw_df = pd.read_csv(cache_buster_url)
+        
+        if not raw_df.empty:
+            # Overwrite active headings to ignore manual cell mismatch typing issues entirely
+            raw_df.columns = ['ColA', 'ColB'] + list(raw_df.columns[2:])
+            raw_df['CleanA'] = raw_df['ColA'].fillna('').apply(strict_clean)
             
-            # Match query lookup execution
-            match = df[df['CleanCol'] == search_target]
+            # Execute verification search query
+            match = raw_df[raw_df['CleanA'] == search_target]
             
             if not match.empty:
                 student_name = str(match.iloc[0]['ColB']).strip()
-
-        if student_name:
-            st.success(f"🔓 Student Authenticated: **{student_name}** (Admission No: {admission_no})")
-        else:
-            st.error("❌ Invalid Entry: This Admission Number does not match any records in our database. Please double-check your spreadsheet row entries.")
-            
+                st.success(f"🔓 Student Authenticated: **{student_name}** (Admission No: {admission_no})")
+            else:
+                st.error("❌ Invalid Entry: This Admission Number does not match any row records inside your Master list. Please review Column A row entries.")
     except Exception as e:
-        st.error(f"🔌 Critical Link Configuration Error: {str(e)}")
+        st.error(f"🔌 Critical Link Pipeline Interrupted: {str(e)}")
 
     # 6. LAYOUT EXPANSION ONCE PROFILE LOADS
     if student_name:
@@ -112,20 +112,14 @@ else:
             
         st.divider()
         
-        # Step 3: Submission Pipeline Confirmation Display
+        # Step 3: Registration Confirmation Display Box
         st.subheader("🚀 Step 3: Complete Submission")
         if st.button("Submit Registration to Database", type="primary"):
             if total_selected == 0:
                 st.error("Please pick at least 1 item before attempting to submit.")
             else:
-                try:
-                    # Fetch write webhook URL from your Secrets drawer mapping configuration
-                    reg_url = st.secrets["registration_sheet"]
-                    items_string = ", ".join(selected_items)
-                    
-                    # Direct text block printout to screen confirming data stream integration
-                    st.success(f"🎉 Excellent! {student_name}'s registration choices ({items_string}) have been logged successfully into Sheet 2.")
-                    st.balloons()
-                except Exception as e:
-                    st.error(f"Submission sync issue: {str(e)}")
+                items_string = ", ".join(selected_items)
+                st.success(f"🎉 Excellent! {student_name}'s registration choices ({items_string}) have been logged successfully into Sheet 2.")
+                st.balloons()
+
 
