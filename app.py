@@ -1,7 +1,7 @@
 import streamlit as st
-import pandas as pd
+from streamlit_gsheets import GSheetsConnection
 import base64
-import time
+import pandas as pd
 
 # 1. Page Configuration
 st.set_page_config(page_title="Arts Festival Registration Portal", page_icon="🎨", layout="centered")
@@ -58,42 +58,30 @@ all_events = [
     "Versification (Malayalam)", "Versification (Hindi)"
 ]
 
-# 5. STEP 2: LOOKUP NAME WITH BUILT-IN RETRY PROTECTION
+# 5. STEP 2: LOOKUP NAME FROM GOOGLE SHEETS CONNECTOR
 if not admission_no:
     st.warning("⚠️ Access Locked: You must enter a valid Admission Number above to select your items.")
 else:
     student_name = ""
-    lookup_df = None
-    
-    # Network safety-net: Attempt connection up to 3 times if server spikes
-    for attempt in range(3):
-        try:
-            lookup_url = f"https://google.com{int(time.time())}"
-            lookup_df = pd.read_csv(lookup_url)
-            break # Success! Break out of the retry loophole
-        except Exception:
-            if attempt < 2:
-                time.sleep(1) # Wait a second before trying again
-                continue
-            else:
-                st.error("📡 Google Servers are temporarily busy or lagging. Please refresh the page in a few moments.")
+    try:
+        # Use the built-in system connector
+        conn_lookup = st.connection("gsheets_lookup", type=GSheetsConnection)
+        lookup_df = conn_lookup.read(ttl="1m")
+        
+        # Clean data matching parameters
+        lookup_df.columns = ['ColA', 'ColB'] + list(lookup_df.columns[2:])
+        lookup_df['ColA'] = lookup_df['ColA'].astype(str).str.strip()
+        match = lookup_df[lookup_df['ColA'] == admission_no]
+        
+        if not match.empty:
+            student_name = str(match["ColB"].values[0]).strip()
+            st.success(f"🔓 Student Authenticated: **{student_name}** (Admission No: {admission_no})")
+        else:
+            st.error("❌ Invalid Entry: This Admission Number does not exist in our master system. Please check your spelling.")
+    except Exception as e:
+        st.error(f"🔌 Connection Setup: Please update your Streamlit Secrets Panel format configuration.")
 
-    # Process data if sheet load completed successfully
-    if lookup_df is not pd.DataFrame(None) and lookup_df is not None:
-        try:
-            lookup_df.columns = ['ColA', 'ColB'] + list(lookup_df.columns[2:])
-            lookup_df['ColA'] = lookup_df['ColA'].astype(str).str.strip()
-            match = lookup_df[lookup_df['ColA'] == admission_no]
-            
-            if not match.empty:
-                student_name = str(match["ColB"].values[0]).strip()
-                st.success(f"🔓 Student Authenticated: **{student_name}** (Admission No: {admission_no})")
-            else:
-                st.error("❌ Invalid Entry: This Admission Number does not exist in our master system. Please check your spelling.")
-        except Exception as e:
-            st.error(f"⚠️ Structural Formatting Error: {str(e)}")
-
-    # Continue execution only if a valid student is returned from sheet 1
+    # Continue layout expansion if credentials validate
     if student_name:
         st.subheader("📋 Step 2: Select Your Registered Items (Max 5)")
         
@@ -112,13 +100,32 @@ else:
             
         st.divider()
         
-        # Step 3: Fast Append Submission Pipeline
+        # Step 3: Fast Append Submission Pipeline into Sheet 2
         st.subheader("🚀 Step 3: Complete Submission")
         if st.button("Submit Registration to Database", type="primary"):
             if total_selected == 0:
                 st.error("Please pick at least 1 item before attempting to submit.")
             else:
-                items_string = ", ".join(selected_items)
-                st.success(f"🎉 Excellent! {student_name}'s registration choices ({items_string}) have been logged successfully.")
-                st.balloons()
+                try:
+                    conn_reg = st.connection("gsheets_registration", type=GSheetsConnection)
+                    existing_reg_df = conn_reg.read(ttl="0s")
+                    
+                    items_string = ", ".join(selected_items)
+                    new_entry = {
+                        "AdmissionNumber": [str(admission_no)], 
+                        "Name": [str(student_name)], 
+                        "Items": [items_string]
+                    }
+                    new_row_df = pd.DataFrame(new_entry)
+                    
+                    if existing_reg_df.empty:
+                        updated_reg_df = new_row_df
+                    else:
+                        updated_reg_df = pd.concat([existing_reg_df, new_row_df], ignore_index=True)
+                        
+                    conn_reg.update(data=updated_reg_df)
+                    st.success(f"🎉 Excellent! {student_name}'s choices have been logged.")
+                    st.balloons()
+                except Exception as e:
+                    st.error("Submission failed. Ensure your registration spreadsheet is shared with EDITOR write permissions.")
 
