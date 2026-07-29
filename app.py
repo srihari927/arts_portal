@@ -64,23 +64,24 @@ if not admission_no:
 else:
     student_name = ""
     try:
-        # Connect to master sheet
+        # Connect to master lookup sheet
         conn_lookup = st.connection("gsheets_lookup", type=GSheetsConnection)
         lookup_df = conn_lookup.read(ttl="5m")
         
-        # Look for matching admission number
+        # Clean data to match text strings cleanly
         lookup_df['AdmissionNumber'] = lookup_df['AdmissionNumber'].astype(str).str.strip()
         match = lookup_df[lookup_df['AdmissionNumber'] == admission_no]
         
         if not match.empty:
-            student_name = match.iloc[0]['Name']
+            # Extract name correctly without brackets or extra text formatting
+            student_name = str(match["Name"].values[0]).strip()
             st.success(f"🔓 Student Authenticated: **{student_name}** (Admission No: {admission_no})")
         else:
-            st.error("❌ Admission Number not found in Master Database. Please check the number.")
+            st.error("❌ Invalid Entry: This Admission Number does not exist in our system. Please check your spelling.")
     except Exception as e:
-        st.error("Connection to Master Database standby. Please check your lookup configuration.")
+        st.error("Database sync standby. Complete your Secrets panel setup to launch active student verification tracking.")
 
-    # Continue if student is successfully verified
+    # Continue layout expansion if student credentials resolve validly
     if student_name:
         st.subheader("📋 Step 2: Select Your Registered Items (Max 5)")
         
@@ -88,7 +89,7 @@ else:
             "Choose your competitive events from the directory:",
             options=all_events,
             max_selections=5,
-            help="The system prevents you from selecting more than 5 items."
+            help="The system automatically prevents you from selecting more than 5 items."
         )
         
         total_selected = len(selected_items)
@@ -106,14 +107,14 @@ else:
                 st.error("Please pick at least 1 item before attempting to submit.")
             else:
                 try:
-                    # Connect to the blank registration sheet
+                    # Connect to the blank registration tracking spreadsheet
                     conn_reg = st.connection("gsheets_registration", type=GSheetsConnection)
                     existing_reg_df = conn_reg.read(ttl="0s") # clear cache
                     
-                    # Conjoin selected items into a single string row
+                    # Merge selections into a single text entry row segment
                     items_string = ", ".join(selected_items)
                     
-                    # Package data to send
+                    # Package row structure
                     new_entry = {
                         "AdmissionNumber": [str(admission_no)], 
                         "Name": [str(student_name)], 
@@ -121,13 +122,11 @@ else:
                     }
                     new_row_df = pd.DataFrame(new_entry)
                     
-                    # Merge data and save back online
+                    # Append data array and update live cloud asset
                     updated_reg_df = pd.concat([existing_reg_df, new_row_df], ignore_index=True)
                     conn_reg.update(data=updated_reg_df)
                     
-                    st.success(f"🎉 Excellent! {student_name}'s registration choices have been logged.")
+                    st.success(f"🎉 Excellent! {student_name}'s registration choices have been logged successfully.")
                     st.balloons()
                 except Exception as e:
-                    st.error("Submission failed. Ensure your registration spreadsheet allows EDIT access permissions.")
-
-
+                    st.error("Submission failed. Ensure your registration spreadsheet is shared with EDITOR write permissions.")
