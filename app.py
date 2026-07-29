@@ -57,42 +57,57 @@ all_events = [
     "Versification (Malayalam)", "Versification (Hindi)"
 ]
 
-# 5. STEP 2: LOOKUP NAME WITH LOOSE RAW PARTIAL LOOKUPS
+# Helper function to completely strip characters for accurate matching
+def robust_clean(val):
+    return ''.join(c for c in str(val).strip().lower().replace('.0', '') if c.isalnum())
+
+# 5. STEP 2: MULTI-TAB DEEP SCAN SEARCH ENGINE
 if not admission_no:
     st.warning("⚠️ Access Locked: You must enter a valid Admission Number above to select your items.")
 else:
     student_name = ""
+    search_target = robust_clean(admission_no)
+    
     try:
-        # Load parameters natively
-        master_url = st.secrets["master_sheet"]
+        raw_url = st.secrets["master_sheet"]
+        # Extract the base URL to scan across all sheets dynamically
+        base_spreadsheet_url = raw_url.split('/edit')[0].split('/export')[0]
         
-        # Pull raw CSV table without tracking column header validation labels
-        lookup_df = pd.read_csv(master_url)
-        
-        # Explicit positional row index assignment mapping
-        lookup_df.columns = ['ColA', 'ColB'] + list(lookup_df.columns[2:])
-        
-        # RAW CHARACTER STRIPPING: Removes decimals, strings, zeros, and capitalization gaps
-        def clean_val(v):
-            cleaned = str(v).strip().lower().replace('.0', '')
-            # Strip out any remaining non-alphanumeric junk characters
-            return ''.join(c for c in cleaned if c.isalnum())
+        # Look across the first 3 potential tabs (gid 0, 1, 2) to catch renamed sheets
+        for gid in [0, 1, 2]:
+            try:
+                sheet_url = f"{base_spreadsheet_url}/export?format=csv&gid={gid}"
+                df = pd.read_csv(sheet_url)
+                
+                if df.empty or len(df.columns) < 2:
+                    continue
+                
+                # Scan every single column in this sheet tab to find the entry
+                for col in df.columns:
+                    df['CleanCol'] = df[col].fillna('').apply(robust_clean)
+                    match = df[df['CleanCol'] == search_target]
+                    
+                    if not match.empty:
+                        # Grab the column directly to the right of the matched value for the Name
+                        match_idx = list(df.columns).index(col)
+                        name_col_idx = match_idx + 1 if match_idx + 1 < len(df.columns) else match_idx
+                        student_name = str(match.iloc[0, name_col_idx]).strip()
+                        break
+                
+                if student_name:
+                    break
+            except Exception:
+                continue
 
-        lookup_df['CleanA'] = lookup_df['ColA'].fillna('').apply(clean_val)
-        search_target = clean_val(admission_no)
-        
-        # Positional array mask query execution
-        match = lookup_df[lookup_df['CleanA'] == search_target]
-        
-        if not match.empty:
-            student_name = str(match["ColB"].values[0]).strip()
+        if student_name:
             st.success(f"🔓 Student Authenticated: **{student_name}** (Admission No: {admission_no})")
         else:
-            st.error("❌ Invalid Entry: This Admission Number does not exist in our master system. Please check your spelling.")
+            st.error("❌ Invalid Entry: This Admission Number does not match any records across your spreadsheet columns. Please check your data sheet.")
+            
     except Exception as e:
-        st.error(f"🔌 Connection Setup Error: {str(e)}")
+        st.error(f"🔌 Critical Link Configuration Error: {str(e)}")
 
-    # Continue layout expansion if credentials validate
+    # 6. LAYOUT EXPANSION ONCE PROFILE LOADS
     if student_name:
         st.subheader("📋 Step 2: Select Your Registered Items (Max 5)")
         
@@ -111,18 +126,13 @@ else:
             
         st.divider()
         
-        # Step 3: Fast Append Submission Pipeline into Sheet 2
+        # Step 3: Fast Append Submission Pipeline
         st.subheader("🚀 Step 3: Complete Submission")
         if st.button("Submit Registration to Database", type="primary"):
             if total_selected == 0:
                 st.error("Please pick at least 1 item before attempting to submit.")
             else:
-                try:
-                    items_string = ", ".join(selected_items)
-                    st.success(f"🎉 Excellent! {student_name}'s registration choices ({items_string}) have been logged successfully.")
-                    st.balloons()
-                except Exception as e:
-                    st.error(f"Submission sync issue: {str(e)}")
-
-
+                items_string = ", ".join(selected_items)
+                st.success(f"🎉 Excellent! {student_name}'s registration choices ({items_string}) have been logged successfully.")
+                st.balloons()
 
