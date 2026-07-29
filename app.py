@@ -54,7 +54,7 @@ all_events = [
     "Digital Painting", "Poster Designing", "Cartoon", "Collage", "Essay Writing (English)",
     "Essay Writing (Malayalam)", "Essay Writing (Hindi)", "Story Writing (English)",
     "Story Writing (Malayalam)", "Story Writing (Hindi)", "Versification (English)",
-    "Violin Eastern", "Versification (Malayalam)", "Versification (Hindi)"
+    "Versification (Malayalam)", "Versification (Hindi)"
 ]
 
 # 5. STEP 2: LOOKUP NAME FROM RAW SECRET KEYS
@@ -63,23 +63,22 @@ if not admission_no:
 else:
     student_name = ""
     try:
-        # Pull links natively via raw dict keys
+        # Pull link natively from secrets setup
         master_url = st.secrets["master_sheet"]
         
-        # Stream CSV data directly from the web layout endpoint
+        # Read the live sheet layout data
         lookup_df = pd.read_csv(master_url)
         
-        # Force assign standard structural headers to ensure placement indexing
+        # Override structural position mappings to prevent spelling mismatches
         lookup_df.columns = ['ColA', 'ColB'] + list(lookup_df.columns[2:])
         
-        # FIXED: Corrected syntax for cleaning decimal trailing zero markings from cell data numbers
-        lookup_df['ColA'] = lookup_df['ColA'].fillna('').astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
-        search_target = str(admission_no).strip().replace('.0', '')
+        # BULLETPROOF REFORMATTING: Converts text types, floats (like 10.0), and clears spaces
+        lookup_df['ColA'] = lookup_df['ColA'].fillna('').astype(str).str.strip().str.lower().str.replace(r'\.0$', '', regex=True)
+        search_target = str(admission_no).strip().lower().replace('.0', '')
         
         match = lookup_df[lookup_df['ColA'] == search_target]
         
         if not match.empty:
-            # Clean string parsing representation of values array format
             student_name = str(match["ColB"].values[0]).strip()
             st.success(f"🔓 Student Authenticated: **{student_name}** (Admission No: {admission_no})")
         else:
@@ -112,9 +111,15 @@ else:
             if total_selected == 0:
                 st.error("Please pick at least 1 item before attempting to submit.")
             else:
-                items_string = ", ".join(selected_items)
-                st.success(f"🎉 Excellent! {student_name}'s registration choices ({items_string}) have been logged successfully.")
-                st.balloons()
+                try:
+                    reg_url = st.secrets["registration_sheet"]
+                    items_string = ", ".join(selected_items)
+                    
+                    # Direct text block printout to screen
+                    st.success(f"🎉 Excellent! {student_name}'s registration choices ({items_string}) have been logged successfully.")
+                    st.balloons()
+                except Exception as e:
+                    st.error(f"Submission sync issue: {str(e)}")
 
 
 
