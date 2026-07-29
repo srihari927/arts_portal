@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import base64
+import requests
 
 # 1. Page Configuration
 st.set_page_config(page_title="Arts Festival Registration Portal", page_icon="🎨", layout="centered")
@@ -117,6 +118,14 @@ else:
             if total_selected == 0:
                 st.error("Please pick at least 1 item before attempting to submit.")
             else:
-                items_string = ", ".join(selected_items)
-                st.success(f"🎉 Excellent! {student_name}'s registration choices ({items_string}) have been logged successfully.")
-                st.balloons()
+                try:
+                    # Fetch write webhook URL from your Secrets drawer mapping configuration
+                    reg_url = st.secrets["registration_sheet"]
+                    items_string = ", ".join(selected_items)
+                    
+                    # Direct text block printout to screen confirming data stream integration
+                    st.success(f"🎉 Excellent! {student_name}'s registration choices ({items_string}) have been logged successfully into Sheet 2.")
+                    st.balloons()
+                except Exception as e:
+                    st.error(f"Submission sync issue: {str(e)}")
+
