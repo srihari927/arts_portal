@@ -57,30 +57,32 @@ all_events = [
     "Versification (Malayalam)", "Versification (Hindi)"
 ]
 
-# 5. STEP 2: LOOKUP NAME DIRECTLY VIA HARDCODED URL
+# 5. STEP 2: LOOKUP NAME DIRECTLY VIA HARDCODED POSITION MAPPING
 if not admission_no:
     st.warning("⚠️ Access Locked: You must enter a valid Admission Number above to select your items.")
 else:
     student_name = ""
     try:
-        # HARDCODED URL - Bypasses secrets configuration entirely
-        lookup_url = "https://google.com"
+        # Bypasses system caching completely by adding a unique numerical stamp to the URL request
+        import time
+        lookup_url = f"https://google.com{int(time.time())}"
         
-        # Pull data down directly
+        # Load the layout
         lookup_df = pd.read_csv(lookup_url)
         
+        # Force rename whatever columns are in positions 0 and 1 to guarantee matching
+        lookup_df.columns = ['ColA', 'ColB'] + list(lookup_df.columns[2:])
+        
         # Standardize strings dynamically to match user inputs
-        lookup_df['AdmissionNumber'] = lookup_df['AdmissionNumber'].astype(str).str.strip()
-        match = lookup_df[lookup_df['AdmissionNumber'] == admission_no]
+        lookup_df['ColA'] = lookup_df['ColA'].astype(str).str.strip()
+        match = lookup_df[lookup_df['ColA'] == admission_no]
         
         if not match.empty:
-            # Bulletproof name extraction mapping
-            student_name = str(match["Name"].values[0]).strip()
+            student_name = str(match["ColB"].values[0]).strip()
             st.success(f"🔓 Student Authenticated: **{student_name}** (Admission No: {admission_no})")
         else:
-            st.error("❌ Invalid Entry: This Admission Number does not exist in our system. Please check your spelling.")
+            st.error("❌ Invalid Entry: This Admission Number does not exist in our master system. Please check your spelling.")
     except Exception as e:
-        # Display the real technical error message to debug exactly what is wrong
         st.error(f"⚠️ Technical Link Connection Error: {str(e)}")
 
     # Continue execution only if a valid student is returned from sheet 1
@@ -108,13 +110,7 @@ else:
             if total_selected == 0:
                 st.error("Please pick at least 1 item before attempting to submit.")
             else:
-                try:
-                    # Log entries safely by grouping array elements
-                    items_string = ", ".join(selected_items)
-                    
-                    # Direct Display confirmation layout
-                    st.success(f"🎉 Excellent! {student_name}'s registration choices ({items_string}) have been logged successfully.")
-                    st.balloons()
-                except Exception as e:
-                    st.error(f"Submission failed: {str(e)}")
+                items_string = ", ".join(selected_items)
+                st.success(f"🎉 Excellent! {student_name}'s registration choices ({items_string}) have been logged successfully.")
+                st.balloons()
 
