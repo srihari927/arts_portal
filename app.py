@@ -137,7 +137,6 @@ else:
     # Read our local database to check for existing registrations
     existing_records = pd.read_csv(DATA_FILE)
     
-    # FIX: If the local file database has 0 rows, skip the duplicate blocker entirely!
     is_duplicate = False
     if len(existing_records) > 0:
         existing_records['CleanCheck'] = existing_records['Admission Number'].astype(str).fillna('').apply(strict_clean)
@@ -155,19 +154,40 @@ else:
                 match = raw_df[raw_df['CleanA'] == search_target]
                 
                 if not match.empty:
-                    # Extracts cleanly using a zero item array mapping to avoid index list brackets
+                    # ✅ FIXED PERMANENTLY: Extracts a pure scalar string with zero brackets or array list remnants using .iloc[0]
                     student_name = str(match['Studentname'].iloc[0]).strip()
                     st.success(f"🔓 Student Authenticated: **{student_name}** (Admission No: {admission_no})")
                 else:
                     st.error("❌ Invalid Entry: This Admission Number does not match any records inside your Master list.")
         except Exception as e:
-                    st.subheader("🚀 Step 3: Complete Submission")
+            st.error(f"🔌 Critical Link Pipeline Interrupted: {str(e)}")
+
+    # 6. STEP 3: ITEM SELECTION & LOCAL DATABASE STORAGE 
+    if student_name:
+        st.subheader("📋 Step 2: Select Your Registered Items (Max 5)")
+        
+        selected_items = st.multiselect(
+            "Choose your competitive events from the directory:",
+            options=all_events,
+            max_selections=5,
+            help="The system automatically prevents you from selecting more than 5 items."
+        )
+        
+        total_selected = len(selected_items)
+        st.info(f"Slots allocated: {total_selected} / 5 items selected.")
+        
+        if total_selected == 5:
+            st.warning("🔒 Maximum registration threshold reached for this profile.")
+            
+        st.divider()
+        
+        st.subheader("🚀 Step 3: Complete Submission")
         if st.button("Submit Registration Details", type="primary"):
             if total_selected == 0:
                 st.error("Please pick at least 1 item before attempting to submit.")
             else:
                 try:
-                    # Transaction race guard check
+                    # Transaction race guard check with matching clean names
                     fresh_records = pd.read_csv(DATA_FILE)
                     is_fresh_duplicate = False
                     if len(fresh_records) > 0:
@@ -185,7 +205,8 @@ else:
                             "Selected Items": items_string
                         }])
                         new_row.to_csv(DATA_FILE, mode='a', header=False, index=False)
-                        
+
+
                         st.success(f"🎉 Success! {student_name}'s event selections have been safely locked for SUVARNAM2k26.")
                         st.balloons()
                         st.rerun() 
