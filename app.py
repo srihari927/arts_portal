@@ -68,7 +68,7 @@ DATA_FILE = "festival_registrations.csv"
 if not os.path.exists(DATA_FILE):
     pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"]).to_csv(DATA_FILE, index=False)
 
-# FIXED INDEPENDENT BACKEND HELPER
+# FIXED INDEPENDENT BACKEND HELPER FOR EMAIL DISPATCH
 def send_report_email():
     current_df = pd.read_csv(DATA_FILE)
     
@@ -134,10 +134,17 @@ else:
     student_name = ""
     search_target = strict_clean(admission_no)
     
+    # Read our local database to check for existing registrations
     existing_records = pd.read_csv(DATA_FILE)
-    existing_records['CleanCheck'] = existing_records['Admission Number'].astype(str).fillna('').apply(strict_clean)
     
-    if search_target in existing_records['CleanCheck'].values:
+    # FIX: If the local file database has 0 rows, skip the duplicate blocker entirely!
+    is_duplicate = False
+    if len(existing_records) > 0:
+        existing_records['CleanCheck'] = existing_records['Admission Number'].astype(str).fillna('').apply(strict_clean)
+        if search_target in existing_records['CleanCheck'].values:
+            is_duplicate = True
+
+    if is_duplicate:
         st.error("❌ Access Denied: A registration submission entry has already been logged for this Admission Number. Duplicates are blocked.")
     else:
         try:
@@ -148,8 +155,8 @@ else:
                 match = raw_df[raw_df['CleanA'] == search_target]
                 
                 if not match.empty:
-                    # ✅ FIXED PERMANENTLY: Extracts a pure scalar string with zero brackets or array list remnants
-                    student_name = str(match['Studentname'].values[0]).strip()
+                    # Extracts cleanly using a zero item array mapping to avoid index list brackets
+                    student_name = str(match['Studentname'].iloc[0]).strip()
                     st.success(f"🔓 Student Authenticated: **{student_name}** (Admission No: {admission_no})")
                 else:
                     st.error("❌ Invalid Entry: This Admission Number does not match any records inside your Master list.")
@@ -181,10 +188,15 @@ else:
                 st.error("Please pick at least 1 item before attempting to submit.")
             else:
                 try:
-                    fresh_check = pd.read_csv(DATA_FILE)
-                    fresh_check['CleanCheck'] = fresh_check['Admission Number'].astype(str).fillna('').apply(strict_clean)
-                    
-                    if search_target in fresh_check['CleanCheck'].values:
+                    # Transaction race guard check
+                    fresh_records = pd.read_csv(DATA_FILE)
+                    is_fresh_duplicate = False
+                    if len(fresh_records) > 0:
+                        fresh_records['CleanCheck'] = fresh_check['Admission Number'].astype(str).fillna('').apply(strict_clean)
+                        if search_target in fresh_records['CleanCheck'].values:
+                            is_fresh_duplicate = True
+                            
+                    if is_fresh_duplicate:
                         st.error("Submission blocked. Your registration details were already logged by another portal session.")
                     else:
                         items_string = ", ".join(selected_items)
