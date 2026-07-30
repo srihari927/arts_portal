@@ -61,7 +61,7 @@ all_events = [
 ]
 
 def strict_clean(val):
-    return ''.join(c for c in str(val).strip().lower().split('.')[0] if c.isalnum())
+    return ''.join(c for c in str(val).strip().lower().split('.') if c.isalnum())
 
 # Initialize local tracking file database structures
 DATA_FILE = "festival_registrations.csv"
@@ -122,8 +122,8 @@ except Exception:
 def load_master_data(url):
     df = pd.read_csv(url, header=0)
     df = df.dropna(how='all').reset_index(drop=True)
-    df.columns = ['AdmissionNo', 'StudentName'] + list(df.columns[2:])
-    # Force master columns strictly into alphanumeric string text comparisons
+    # MATCHES EXCEL COLUMN HEADERS EXACTLY FROM YOUR SCREENSHOT
+    df.columns = ['AdmissionNo', 'Studentname'] + list(df.columns[2:])
     df['AdmissionNo'] = df['AdmissionNo'].astype(str)
     return df
 
@@ -151,8 +151,8 @@ else:
                 match = raw_df[raw_df['CleanA'] == search_target]
                 
                 if not match.empty:
-                    # ✅ FIXED: Force extraction using to_list()[0] to guarantee clean text string names with no brackets
-                    student_name = str(match['StudentName'].to_list()[0]).strip()
+                    # Extracts using exact row string mapping safely with zero formatting conflicts
+                    student_name = str(match['Studentname'].values[0]).strip()
                     st.success(f"🔓 Student Authenticated: **{student_name}** (Admission No: {admission_no})")
                 else:
                     st.error("❌ Invalid Entry: This Admission Number does not match any records inside your Master list.")
@@ -204,8 +204,6 @@ else:
                 except Exception as write_err:
                     st.error(f"Failed to record entry locally: {str(write_err)}")
 
-# 🔐 ADMIN DASHBOARD - SECURED EMAIL DISPATCHER & CLEANER UTILITY
-st.write("---")
 # 🔐 ADMIN DASHBOARD - SECURED EMAIL DISPATCHER & CLEANER UTILITY
 st.write("---")
 st.subheader("🛠️ Secure Admin Portal")
