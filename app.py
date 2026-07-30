@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import base64
+import requests
 from streamlit_gsheets import GSheetsConnection
 
 # 1. Page Configuration
@@ -58,15 +59,14 @@ all_events = [
     "Versification (Malayalam)", "Versification (Hindi)"
 ]
 
-# Helper function to completely strip spaces and non-characters for bulletproof verification
 def strict_clean(val):
     return ''.join(c for c in str(val).strip().lower().split('.') if c.isalnum())
 
-# Initialize Google Sheets Connection
+# Initialize the Sheets engine
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# 💡 SPEED OPTIMIZATION: Cache the Master List reader function
-@st.cache_data(ttl=600)  # Caches data in memory for 10 minutes to make student lookups instant
+# Cache student data for 10 minutes so validation is instant
+@st.cache_data(ttl=600)
 def load_master_data(url):
     return conn.read(spreadsheet=url)
 
@@ -78,14 +78,12 @@ else:
     search_target = strict_clean(admission_no)
     
     try:
-        # Calls the optimized cached reading mechanism
         raw_df = load_master_data(st.secrets["connections"]["gsheets"]["master_sheet_url"])
         
         if not raw_df.empty:
             raw_df.columns = ['ColA', 'ColB'] + list(raw_df.columns[2:])
             raw_df['CleanA'] = raw_df['ColA'].fillna('').apply(strict_clean)
             
-            # Execute instant verification from local memory
             match = raw_df[raw_df['CleanA'] == search_target]
             
             if not match.empty:
@@ -121,27 +119,26 @@ else:
             if total_selected == 0:
                 st.error("Please pick at least 1 item before attempting to submit.")
             else:
+                items_string = ", ".join(selected_items)
+                
                 try:
-                    # Fetching entries directly without caching to avoid overwriting current inputs
-                    entries_df = conn.read(spreadsheet=st.secrets["connections"]["gsheets"]["entries_sheet_url"], ttl=0)
+                    # Dynamically maps values straight from your saved Secrets panel configuration
+                    form_url = st.secrets["connections"]["gsheets"]["form_url"]
+                    form_data = {
+                        st.secrets["connections"]["gsheets"]["form_entry_admission"]: admission_no,
+                        st.secrets["connections"]["gsheets"]["form_entry_name"]: student_name,
+                        st.secrets["connections"]["gsheets"]["form_entry_items"]: items_string
+                    }
                     
-                    items_string = ", ".join(selected_items)
-                    new_data = pd.DataFrame([{
-                        "Admission Number": admission_no,
-                        "Student Name": student_name,
-                        "Selected Items": items_string
-                    }])
+                    # Fire entry straight to Google forms database background endpoint
+                    response = requests.post(form_url, data=form_data)
                     
-                    updated_df = pd.concat([entries_df, new_data], ignore_index=True)
-                    conn.update(spreadsheet=st.secrets["connections"]["gsheets"]["entries_sheet_url"], data=updated_df)
-                    
-                    # 💡 CLEAR CACHE: Clear memory buffers so fresh data registers accurately moving forward
-                    st.cache_data.clear()
-                    
-                    st.success(f"🎉 Excellent! {student_name}'s registration choices ({items_string}) have been logged successfully into Sheet 2.")
-                    st.balloons()
-                    
-                except Exception as write_err:
-                    st.error(f"Failed to record entry to database sheet: {str(write_err)}")
+                    if response.status_code == 200 or response.ok:
+                        st.success(f"🎉 Excellent! {student_name}'s registration choices ({items_string}) have been logged successfully into Sheet 2.")
+                        st.balloons()
+                    else:
+                        st.error("Submission delivered, but backend returned an unexpected network confirmation code.")
+                except Exception as form_err:
+                    st.error(f"Failed to post via automated form engine: {str(form_err)}")
 
 
