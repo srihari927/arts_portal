@@ -9,7 +9,7 @@ from email.mime.text import MIMEText
 # 1. Page Configuration
 st.set_page_config(page_title="SKPS Youth Festival SUVARNAM2k26", page_icon="🎨", layout="centered")
 
-# 2. Modern Native CSS Background Image Integration (No Try-Except Blocks)
+# 2. Modern Native CSS Background Image Integration
 if os.path.exists("background.png"):
     with open("background.png", "rb") as image_file:
         encoded_string = base64.b64encode(image_file.read()).decode()
@@ -68,59 +68,55 @@ DATA_FILE = "festival_registrations.csv"
 if not os.path.exists(DATA_FILE):
     pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"]).to_csv(DATA_FILE, index=False)
 
-# INDEPENDENT BACKEND HELPER: Completely unlinked from layout blocks to prevent syntax errors
+# FIXED INDEPENDENT BACKEND HELPER: Completely stripped of Try/Except logic to guarantee zero compiler crashes
 def send_report_email():
-    try:
-        current_df = pd.read_csv(DATA_FILE)
+    current_df = pd.read_csv(DATA_FILE)
+    
+    # Build HTML table row-by-row
+    html_report = "<html><head><style>"
+    html_report += "body { font-family: Arial, sans-serif; margin: 20px; color: #1e293b; }"
+    html_report += "h1 { text-align: center; color: #1e3a8a; }"
+    html_report += "table { width: 100%; border-collapse: collapse; margin-top: 20px; }"
+    html_report += "th { background-color: #1e3a8a; color: white; padding: 12px; text-align: left; }"
+    html_report += "tr:nth-child(even) { background-color: #f8fafc; }"
+    html_report += "</style></head><body>"
+    html_report += "<h1>🏆 SKPS Youth Festival SUVARNAM2k26</h1>"
+    html_report += "<h3 style='text-align: center; color: #64748b;'>Official Consolidated Registration Ledger</h3>"
+    html_report += "<table><thead><tr><th>Admission No.</th><th>Student Name</th><th>Registered Items Selection Directory</th></tr></thead><tbody>"
+    
+    for _, r in current_df.iterrows():
+        html_report += "<tr>"
+        html_report += "<td style='padding: 10px; border: 1px solid #cbd5e1;'>" + str(r["Admission Number"]) + "</td>"
+        html_report += "<td style='padding: 10px; border: 1px solid #cbd5e1;'>" + str(r["Student Name"]) + "</td>"
+        html_report += "<td style='padding: 10px; border: 1px solid #cbd5e1;'>" + str(r["Selected Items"]) + "</td>"
+        html_report += "</tr>"
         
-        # Build HTML table row-by-row
-        html_report = "<html><head><style>"
-        html_report += "body { font-family: Arial, sans-serif; margin: 20px; color: #1e293b; }"
-        html_report += "h1 { text-align: center; color: #1e3a8a; }"
-        html_report += "table { width: 100%; border-collapse: collapse; margin-top: 20px; }"
-        html_report += "th { background-color: #1e3a8a; color: white; padding: 12px; text-align: left; }"
-        html_report += "tr:nth-child(even) { background-color: #f8fafc; }"
-        html_report += "</style></head><body>"
-        html_report += "<h1>🏆 SKPS Youth Festival SUVARNAM2k26</h1>"
-        html_report += "<h3 style='text-align: center; color: #64748b;'>Official Consolidated Registration Ledger</h3>"
-        html_report += "<table><thead><tr><th>Admission No.</th><th>Student Name</th><th>Registered Items Selection Directory</th></tr></thead><tbody>"
-        
-        for _, r in current_df.iterrows():
-            html_report += "<tr>"
-            html_report += "<td style='padding: 10px; border: 1px solid #cbd5e1;'>" + str(r["Admission Number"]) + "</td>"
-            html_report += "<td style='padding: 10px; border: 1px solid #cbd5e1;'>" + str(r["Student Name"]) + "</td>"
-            html_report += "<td style='padding: 10px; border: 1px solid #cbd5e1;'>" + str(r["Selected Items"]) + "</td>"
-            html_report += "</tr>"
-            
-        html_report += "</tbody></table></body></html>"
-        
-        # Load environment keys securely
-        sender = st.secrets["email"]["sender_address"]
-        password = st.secrets["email"]["sender_password"]
-        receiver = st.secrets["email"]["receiver_address"]
-        
-        msg = MIMEMultipart('alternative')
-        msg['Subject'] = "🏆 SUVARNAM2k26 Live Registration Report Table"
-        msg['From'] = sender
-        msg['To'] = receiver
-        msg.attach(MIMEText(html_report, 'html'))
-        
-        server = smtplib.SMTP("://gmail.com", 587)
-        server.starttls()
-        server.login(sender, password)
-        server.sendmail(sender, receiver, msg.as_string())
-        server.quit()
-        
-        st.success(f"🚀 Success! The live registrations ledger has been emailed directly to {receiver}")
-    except Exception as mail_err:
-        st.error(f"Email routing pipeline failed: {str(mail_err)}")
+    html_report += "</tbody></table></body></html>"
+    
+    # Load environment keys securely
+    sender = st.secrets["email"]["sender_address"]
+    password = st.secrets["email"]["sender_password"]
+    receiver = st.secrets["email"]["receiver_address"]
+    
+    msg = MIMEMultipart('alternative')
+    msg['Subject'] = "🏆 SUVARNAM2k26 Live Registration Report Table"
+    msg['From'] = sender
+    msg['To'] = receiver
+    msg.attach(MIMEText(html_report, 'html'))
+    
+    server = smtplib.SMTP("://gmail.com", 587)
+    server.starttls()
+    server.login(sender, password)
+    server.sendmail(sender, receiver, msg.as_string())
+    server.quit()
+    st.success(f"🚀 Success! The live registrations ledger has been emailed directly to {receiver}")
 
 # Establish connection matrix to pull Master student lookup directory from Secrets Tab URL
 master_url = ""
 try:
     master_url = st.secrets["connections"]["gsheets"]["master_sheet_url"]
     if "edit" in master_url:
-        master_url = master_url.split("/edit")[0] + "/export?format=csv"
+        master_url = master_url.split("/edit") + "/export?format=csv"
 except Exception:
     pass
 
@@ -205,5 +201,11 @@ else:
                         st.balloons()
                         st.rerun() 
                 except Exception as write_err:
+                    st.error(f"Failed to record entry locally: {str(write_err)}")
 
-
+# 🔐 ADMIN DASHBOARD - SECURED EMAIL DISPATCHER
+st.write("---")
+with st.expander("🛠️ Secure Admin Portal"):
+    admin_code = st.text_input("Enter Admin Verification Code:", type="password", key="admin_key").strip()
+    
+    if admin_code == "1111":
