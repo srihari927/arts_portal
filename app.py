@@ -200,10 +200,14 @@ else:
                 except Exception as write_err:
                     st.error(f"Failed to record entry locally: {str(write_err)}")
 
-# 🔐 ADMIN DASHBOARD - SECURED EMAIL DISPATCHER (UN-NESTED FLAT DESIGN)
+# 🔐 ADMIN DASHBOARD - SECURED EMAIL DISPATCHER & CLEANER UTILITY
 st.write("---")
 st.subheader("🛠️ Secure Admin Portal")
 admin_code = st.text_input("Enter Admin Verification Code:", type="password", key="admin_key").strip()
 
 if admin_code == "1111":
     st.success("🔑 Code Verified. Admin Options Unlocked.")
+    
+    # Visual metrics readout summary grid layout
+    current_df = pd.read_csv(DATA_FILE)
+
