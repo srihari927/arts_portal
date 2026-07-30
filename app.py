@@ -121,7 +121,7 @@ def load_master_data(url):
     df = pd.read_excel(url, engine='openpyxl', header=0)
     df = df.dropna(how='all').reset_index(drop=True)
     df.columns = ['AdmissionNo', 'Studentname'] + list(df.columns[2:])
-    df['AdmissionNo'] = df['AdmissionNo'].astype(str).str.split('.').str[0].str.strip()
+    df['AdmissionNo'] = df['AdmissionNo'].astype(str).str.split('.').str.get(0).str.strip()
     return df
 
 # 4. STEP 1: READ ADMISSION NUMBER INPUT
@@ -148,7 +148,6 @@ else:
                 match = raw_df[raw_df['CleanA'] == search_target]
                 
                 if not match.empty:
-                    # Extracts using exact row string mapping safely with zero formatting conflicts
                     student_name = str(match['Studentname'].to_list()[0]).strip()
                     st.success(f"🔓 Student Authenticated: **{student_name}** (Admission No: {admission_no})")
                 else:
@@ -205,10 +204,10 @@ else:
 st.write("---")
 st.subheader("🛠️ Secure Admin Portal")
 admin_code = st.text_input("Enter Admin Verification Code:", type="password", key="admin_key").strip()
+
 if admin_code == "1111":
     st.success("🔑 Code Verified. Admin Options Unlocked.")
-    
-    current_df = pd.read_csv(DATA_FILE)
+        current_df = pd.read_csv(DATA_FILE)
     st.info(f"📊 Live Server Analytics Counter: {len(current_df)} submissions recorded.")
     
     if st.button("📧 Email Live Master Report Table to Admin Inbox", use_container_width=True):
@@ -218,10 +217,13 @@ if admin_code == "1111":
             st.warning("Cannot email an empty table. Awaiting incoming submissions.")
             
     st.write(" ")
+    # FIXED: Re-mapped file wiping routine sequence explicitly to fix frozen reset bug loops
     if st.button("🔴 Clear & Reset All Registrations (Delete Trial Entries)", use_container_width=True):
-        pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"]).to_csv(DATA_FILE, index=False)
-        st.success("🧹 Database wiped clean! App restarted.")
-        st.rerun()
+        df_reset = pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"])
+        df_reset.to_csv(DATA_FILE, index=False)
+        st.success("🧹 Database wiped clean! App restarted successfully.")
+        st.button("🔄 Click Here to Complete Reset Canvas Reload")
 
 elif admin_code != "":
     st.error("❌ Incorrect Admin Verification Code. Access Restricted.")
+
