@@ -116,7 +116,8 @@ try:
 except Exception:
     pass
 
-@st.cache_data(ttl=5)
+# Caching engine set to 2 seconds to immediately discard old trial registration memories
+@st.cache_data(ttl=2)
 def load_master_data(url):
     df = pd.read_excel(url, engine='openpyxl', header=0)
     df = df.dropna(how='all').reset_index(drop=True)
@@ -148,6 +149,7 @@ else:
                 match = raw_df[raw_df['CleanA'] == search_target]
                 
                 if not match.empty:
+                    # Cleaned string extraction array map index directly
                     student_name = str(match['Studentname'].to_list()[0]).strip()
                     st.success(f"🔓 Student Authenticated: **{student_name}** (Admission No: {admission_no})")
                 else:
@@ -203,6 +205,9 @@ else:
 # 🔐 ADMIN DASHBOARD - SECURED EMAIL DISPATCHER & CLEANER UTILITY
 st.write("---")
 st.subheader("🛠️ Secure Admin Portal")
+# 🔐 ADMIN DASHBOARD - SECURED EMAIL DISPATCHER & CLEANER UTILITY
+st.write("---")
+st.subheader("🛠️ Secure Admin Portal")
 admin_code = st.text_input("Enter Admin Verification Code:", type="password", key="admin_key").strip()
 
 if admin_code == "1111":
@@ -227,4 +232,3 @@ if admin_code == "1111":
 elif admin_code != "":
     st.error("❌ Incorrect Admin Verification Code. Access Restricted.")
 
-    
