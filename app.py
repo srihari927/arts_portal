@@ -105,7 +105,7 @@ else:
             match = raw_df[raw_df['CleanA'] == search_target]
             
             if not match.empty:
-                student_name = str(match.iloc['ColB']).strip()
+                student_name = str(match.iloc[0]['ColB']).strip()
                 st.success(f"🔓 Student Authenticated: **{student_name}** (Admission No: {admission_no})")
             else:
                 st.error("❌ Invalid Entry: This Admission Number does not match any records inside your Master list.")
@@ -138,7 +138,19 @@ else:
             else:
                 try:
                     items_string = ", ".join(selected_items)
- # 🔐 ADMIN DASHBOARD COMPILING TOOL PANEL (Located securely at the foot margin)
+                    new_row = pd.DataFrame([{
+                        "Admission Number": admission_no,
+                        "Student Name": student_name,
+                        "Selected Items": items_string
+                    }])
+                    new_row.to_csv(DATA_FILE, mode='a', header=False, index=False)
+                    
+                    st.success(f"🎉 Success! {student_name}'s event selections have been safely locked for SUVARNAM2k26.")
+                    st.balloons()
+                except Exception as write_err:
+                    st.error(f"Failed to record entry locally: {str(write_err)}")
+
+# 🔐 ADMIN DASHBOARD COMPILING TOOL PANEL (Located securely at the foot margin)
 st.write("---")
 with st.expander("🛠️ Admin Portal: Export SUVARNAM2k26 Master Ledger Reports"):
     try:
@@ -183,7 +195,7 @@ with st.expander("🛠️ Admin Portal: Export SUVARNAM2k26 Master Ledger Report
                     Paragraph(str(r["Selected Items"]), td_style)
                 ])
             
-            # FIXED: Explicit landscape scaling layout constraints (Total width: 730 points)
+            # Render layout matrix with clean text-wrapping bounds (Width: 100, 180, 450)
             report_table = Table(table_data, colWidths=[100, 180, 450])
             report_table.setStyle(TableStyle([
                 ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1E3A8A')),
@@ -202,12 +214,5 @@ with st.expander("🛠️ Admin Portal: Export SUVARNAM2k26 Master Ledger Report
             st.download_button(
                 label="📥 Download Tabular Master PDF Report Document",
                 data=pdf_out,
-                file_name="SUVARNAM2k26_Master_Registrations.pdf",
-                mime="application/pdf",
-                use_container_width=True
-            )
-        else:
-            st.info("Awaiting initial submissions data streams from students before report compilation tools initialize.")
-    except Exception as pdf_gen_err:
-        st.error(f"Admin compilation workflow error: {str(pdf_gen_err)}")
+
 
