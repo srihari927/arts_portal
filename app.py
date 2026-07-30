@@ -116,8 +116,7 @@ try:
 except Exception:
     pass
 
-# Caching engine set to 2 seconds to immediately discard old trial registration memories
-@st.cache_data(ttl=2)
+@st.cache_data(ttl=1)
 def load_master_data(url):
     df = pd.read_excel(url, engine='openpyxl', header=0)
     df = df.dropna(how='all').reset_index(drop=True)
@@ -149,8 +148,8 @@ else:
                 match = raw_df[raw_df['CleanA'] == search_target]
                 
                 if not match.empty:
-                    # Cleaned string extraction array map index directly
-                    student_name = str(match['Studentname'].to_list()[0]).strip()
+                    # ✅ FIXED PERMANENTLY: Extracts a pure scalar string with zero brackets or array list remnants
+                    student_name = str(match['Studentname'].values[0]).strip()
                     st.success(f"🔓 Student Authenticated: **{student_name}** (Admission No: {admission_no})")
                 else:
                     st.error("❌ Invalid Entry: This Admission Number does not match any records inside your Master list.")
@@ -205,9 +204,6 @@ else:
 # 🔐 ADMIN DASHBOARD - SECURED EMAIL DISPATCHER & CLEANER UTILITY
 st.write("---")
 st.subheader("🛠️ Secure Admin Portal")
-# 🔐 ADMIN DASHBOARD - SECURED EMAIL DISPATCHER & CLEANER UTILITY
-st.write("---")
-st.subheader("🛠️ Secure Admin Portal")
 admin_code = st.text_input("Enter Admin Verification Code:", type="password", key="admin_key").strip()
 
 if admin_code == "1111":
@@ -224,11 +220,11 @@ if admin_code == "1111":
             
     st.write(" ")
     if st.button("🔴 Clear & Reset All Registrations (Delete Trial Entries)", use_container_width=True):
-        df_reset = pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"])
-        df_reset.to_csv(DATA_FILE, index=False)
+        pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"]).to_csv(DATA_FILE, index=False)
         st.success("🧹 Database wiped clean! App restarted successfully.")
-        st.button("🔄 Click Here to Complete Reset Canvas Reload")
+        st.rerun()
 
 elif admin_code != "":
     st.error("❌ Incorrect Admin Verification Code. Access Restricted.")
+
 
