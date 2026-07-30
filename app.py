@@ -161,28 +161,7 @@ else:
                 else:
                     st.error("❌ Invalid Entry: This Admission Number does not match any records inside your Master list.")
         except Exception as e:
-            st.error(f"🔌 Critical Link Pipeline Interrupted: {str(e)}")
-
-    # 6. STEP 3: ITEM SELECTION & LOCAL DATABASE STORAGE 
-    if student_name:
-        st.subheader("📋 Step 2: Select Your Registered Items (Max 5)")
-        
-        selected_items = st.multiselect(
-            "Choose your competitive events from the directory:",
-            options=all_events,
-            max_selections=5,
-            help="The system automatically prevents you from selecting more than 5 items."
-        )
-        
-        total_selected = len(selected_items)
-        st.info(f"Slots allocated: {total_selected} / 5 items selected.")
-        
-        if total_selected == 5:
-            st.warning("🔒 Maximum registration threshold reached for this profile.")
-            
-        st.divider()
-        
-        st.subheader("🚀 Step 3: Complete Submission")
+                    st.subheader("🚀 Step 3: Complete Submission")
         if st.button("Submit Registration Details", type="primary"):
             if total_selected == 0:
                 st.error("Please pick at least 1 item before attempting to submit.")
@@ -192,7 +171,7 @@ else:
                     fresh_records = pd.read_csv(DATA_FILE)
                     is_fresh_duplicate = False
                     if len(fresh_records) > 0:
-                        fresh_records['CleanCheck'] = fresh_check['Admission Number'].astype(str).fillna('').apply(strict_clean)
+                        fresh_records['CleanCheck'] = fresh_records['Admission Number'].astype(str).fillna('').apply(strict_clean)
                         if search_target in fresh_records['CleanCheck'].values:
                             is_fresh_duplicate = True
                             
