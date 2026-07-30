@@ -123,6 +123,8 @@ def load_master_data(url):
     df = pd.read_csv(url, header=0)
     df = df.dropna(how='all').reset_index(drop=True)
     df.columns = ['AdmissionNo', 'StudentName'] + list(df.columns[2:])
+    # 💡 FIX 1: Convert the master sheet column values strictly to string/text format
+    df['AdmissionNo'] = df['AdmissionNo'].astype(str)
     return df
 
 # 4. STEP 1: READ ADMISSION NUMBER INPUT
@@ -136,7 +138,7 @@ else:
     search_target = strict_clean(admission_no)
     
     existing_records = pd.read_csv(DATA_FILE)
-    existing_records['CleanCheck'] = existing_records['Admission Number'].fillna('').apply(strict_clean)
+    existing_records['CleanCheck'] = existing_records['Admission Number'].astype(str).fillna('').apply(strict_clean)
     
     if search_target in existing_records['CleanCheck'].values:
         st.error("❌ Access Denied: A registration submission entry has already been logged for this Admission Number. Duplicates are blocked.")
@@ -149,7 +151,7 @@ else:
                 match = raw_df[raw_df['CleanA'] == search_target]
                 
                 if not match.empty:
-                    # Cleaned positional lookups to ensure exact name translation
+                    # 💡 FIX 2: Extracted using exact scalar tracking positioning index [0] to get clean text name
                     student_name = str(match['StudentName'].values[0]).strip()
                     st.success(f"🔓 Student Authenticated: **{student_name}** (Admission No: {admission_no})")
                 else:
@@ -183,7 +185,7 @@ else:
             else:
                 try:
                     fresh_check = pd.read_csv(DATA_FILE)
-                    fresh_check['CleanCheck'] = fresh_check['Admission Number'].fillna('').apply(strict_clean)
+                    fresh_check['CleanCheck'] = fresh_check['Admission Number'].astype(str).fillna('').apply(strict_clean)
                     
                     if search_target in fresh_check['CleanCheck'].values:
                         st.error("Submission blocked. Your registration details were already logged by another portal session.")
@@ -201,11 +203,11 @@ else:
                         st.rerun() 
                 except Exception as write_err:
                     st.error(f"Failed to record entry locally: {str(write_err)}")
-
 # 🔐 ADMIN DASHBOARD - SECURED EMAIL DISPATCHER & CLEANER UTILITY
 st.write("---")
 st.subheader("🛠️ Secure Admin Portal")
 admin_code = st.text_input("Enter Admin Verification Code:", type="password", key="admin_key").strip()
+
 if admin_code == "1111":
     st.success("🔑 Code Verified. Admin Options Unlocked.")
     
@@ -226,4 +228,3 @@ if admin_code == "1111":
 
 elif admin_code != "":
     st.error("❌ Incorrect Admin Verification Code. Access Restricted.")
-
