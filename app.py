@@ -195,7 +195,7 @@ with st.expander("🛠️ Admin Portal: Export SUVARNAM2k26 Master Ledger Report
                     Paragraph(str(r["Selected Items"]), td_style)
                 ])
             
-            # Render layout matrix with clean text-wrapping bounds (Width: 100, 180, 450)
+            # FIXED: Explicit column width layout widths array added here
             report_table = Table(table_data, colWidths=[100, 180, 450])
             report_table.setStyle(TableStyle([
                 ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1E3A8A')),
@@ -214,5 +214,7 @@ with st.expander("🛠️ Admin Portal: Export SUVARNAM2k26 Master Ledger Report
             st.download_button(
                 label="📥 Download Tabular Master PDF Report Document",
                 data=pdf_out,
+                file_name="SUVARNAM2k26_Master_Registrations.pdf",
+                mime="application/pdf",
 
 
