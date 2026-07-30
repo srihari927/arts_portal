@@ -111,7 +111,7 @@ else:
                 match = raw_df[raw_df['CleanA'] == search_target]
                 
                 if not match.empty:
-                    student_name = str(match.iloc[0]['ColB']).strip()
+                    student_name = str(match.iloc['ColB']).strip()
                     st.success(f"🔓 Student Authenticated: **{student_name}** (Admission No: {admission_no})")
                 else:
                     st.error("❌ Invalid Entry: This Admission Number does not match any records inside your Master list.")
@@ -172,11 +172,11 @@ with st.expander("🛠️ Secure Admin Portal"):
         st.success("🔑 Code Verified. Admin Options Unlocked.")
         
         if st.button("📧 Email Live Master Report Table to Admin Inbox", use_container_width=True):
-            try:
-                if os.path.exists(DATA_FILE) and os.path.getsize(DATA_FILE) > 50:
+            if os.path.exists(DATA_FILE) and os.path.getsize(DATA_FILE) > 50:
+                try:
                     current_df = pd.read_csv(DATA_FILE)
                     
-                    # 💡 FIXED: Building HTML line-by-line using basic addition to ensure no syntax truncation errors
+                    # Building HTML structure cleanly row-by-row
                     html_report = "<html><head><style>"
                     html_report += "body { font-family: Arial, sans-serif; margin: 20px; color: #1e293b; }"
                     html_report += "h1 { text-align: center; color: #1e3a8a; }"
@@ -188,7 +188,6 @@ with st.expander("🛠️ Secure Admin Portal"):
                     html_report += "<h3 style='text-align: center; color: #64748b;'>Official Consolidated Registration Ledger</h3>"
                     html_report += "<table><thead><tr><th>Admission No.</th><th>Student Name</th><th>Registered Items Selection Directory</th></tr></thead><tbody>"
                     
-                    # Construct rows dynamically
                     for _, r in current_df.iterrows():
                         html_report += "<tr>"
                         html_report += "<td style='padding: 10px; border: 1px solid #cbd5e1;'>" + str(r["Admission Number"]) + "</td>"
@@ -198,7 +197,9 @@ with st.expander("🛠️ Secure Admin Portal"):
                         
                     html_report += "</tbody></table></body></html>"
                     
-                    # Fetching account variables safely from secrets
+                    # Load environment keys directly from secrets workspace tab
+                    sender = st.secrets["email"]["sender_address"]
+
 
 
 
