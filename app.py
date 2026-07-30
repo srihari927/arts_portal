@@ -9,12 +9,11 @@ from email.mime.text import MIMEText
 # 1. Page Configuration
 st.set_page_config(page_title="SKPS Youth Festival SUVARNAM2k26", page_icon="🎨", layout="centered")
 
-# 2. Modern CSS Background & Structural Wrapper Controls
-try:
+# 2. Modern Native CSS Background Image Integration (No Try-Except Blocks)
+if os.path.exists("background.png"):
     with open("background.png", "rb") as image_file:
         encoded_string = base64.b64encode(image_file.read()).decode()
-    
-    background_style = f"""
+    st.markdown(f"""
     <style>
     .main, [data-testid="stAppViewContainer"], [data-testid="stAppViewMain"] {{
         background-image: url("data:image/png;base64,{encoded_string}") !important;
@@ -33,15 +32,12 @@ try:
         padding: 5px !important;
     }}
     </style>
-    """
-    st.markdown(background_style, unsafe_allow_html=True)
-except FileNotFoundError:
-    pass
+    """, unsafe_allow_html=True)
 
 # 3. Logo Sizing Configuration
-try:
-    st.image("logo.png", width=450) 
-except Exception:
+if os.path.exists("logo.png"):
+    st.image("logo.png", width=450)
+else:
     st.write("📁 *[SKPS School Logo]*")
 
 st.title("🎨 SKPS Youth Festival SUVARNAM2k26")
@@ -120,12 +116,13 @@ def send_report_email():
         st.error(f"Email routing pipeline failed: {str(mail_err)}")
 
 # Establish connection matrix to pull Master student lookup directory from Secrets Tab URL
+master_url = ""
 try:
     master_url = st.secrets["connections"]["gsheets"]["master_sheet_url"]
     if "edit" in master_url:
-        master_url = master_url.split("/edit") + "/export?format=csv"
+        master_url = master_url.split("/edit")[0] + "/export?format=csv"
 except Exception:
-    master_url = ""
+    pass
 
 @st.cache_data(ttl=600)
 def load_master_data(url):
@@ -208,7 +205,5 @@ else:
                         st.balloons()
                         st.rerun() 
                 except Exception as write_err:
-
-
 
 
