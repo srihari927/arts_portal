@@ -68,11 +68,10 @@ DATA_FILE = "festival_registrations.csv"
 if not os.path.exists(DATA_FILE):
     pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"]).to_csv(DATA_FILE, index=False)
 
-# FIXED INDEPENDENT BACKEND HELPER: Completely stripped of Try/Except logic to guarantee zero compiler crashes
+# FIXED INDEPENDENT BACKEND HELPER
 def send_report_email():
     current_df = pd.read_csv(DATA_FILE)
     
-    # Build HTML table row-by-row
     html_report = "<html><head><style>"
     html_report += "body { font-family: Arial, sans-serif; margin: 20px; color: #1e293b; }"
     html_report += "h1 { text-align: center; color: #1e3a8a; }"
@@ -93,7 +92,6 @@ def send_report_email():
         
     html_report += "</tbody></table></body></html>"
     
-    # Load environment keys securely
     sender = st.secrets["email"]["sender_address"]
     password = st.secrets["email"]["sender_password"]
     receiver = st.secrets["email"]["receiver_address"]
@@ -134,7 +132,6 @@ else:
     student_name = ""
     search_target = strict_clean(admission_no)
     
-    # Check for duplicate entries
     existing_records = pd.read_csv(DATA_FILE)
     existing_records['CleanCheck'] = existing_records['Admission Number'].fillna('').apply(strict_clean)
     
@@ -203,9 +200,10 @@ else:
                 except Exception as write_err:
                     st.error(f"Failed to record entry locally: {str(write_err)}")
 
-# 🔐 ADMIN DASHBOARD - SECURED EMAIL DISPATCHER
+# 🔐 ADMIN DASHBOARD - SECURED EMAIL DISPATCHER (UN-NESTED FLAT DESIGN)
 st.write("---")
-with st.expander("🛠️ Secure Admin Portal"):
-    admin_code = st.text_input("Enter Admin Verification Code:", type="password", key="admin_key").strip()
-    
-    if admin_code == "1111":
+st.subheader("🛠️ Secure Admin Portal")
+admin_code = st.text_input("Enter Admin Verification Code:", type="password", key="admin_key").strip()
+
+if admin_code == "1111":
+    st.success("🔑 Code Verified. Admin Options Unlocked.")
