@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import base64
-import random
 from streamlit_gsheets import GSheetsConnection
 
 # 1. Page Configuration
@@ -61,9 +60,17 @@ all_events = [
 
 # Helper function to completely strip spaces and non-characters for bulletproof verification
 def strict_clean(val):
-    return ''.join(c for c in str(val).strip().lower().split('.')[0] if c.isalnum())
+    return ''.join(c for c in str(val).strip().lower().split('.') if c.isalnum())
 
-# 5. STEP 2: CACHE-BUSTING VERIFICATION ENGINE
+# Initialize Google Sheets Connection
+conn = st.connection("gsheets", type=GSheetsConnection)
+
+# 💡 SPEED OPTIMIZATION: Cache the Master List reader function
+@st.cache_data(ttl=600)  # Caches data in memory for 10 minutes to make student lookups instant
+def load_master_data(url):
+    return conn.read(spreadsheet=url)
+
+# 5. STEP 2: VERIFICATION ENGINE
 if not admission_no:
     st.warning("⚠️ Access Locked: You must enter a valid Admission Number above to select your items.")
 else:
@@ -71,19 +78,14 @@ else:
     search_target = strict_clean(admission_no)
     
     try:
-        # Establish connection with Google Sheets using Streamlit Secrets
-        conn = st.connection("gsheets", type=GSheetsConnection)
-        
-        # Read the Master Student Sheet (Sheet 1) from secrets configuration
-        # This automatically appends a cache buster under the hood to ensure live data
-        raw_df = conn.read(spreadsheet=st.secrets["connections"]["gsheets"]["master_sheet_url"], ttl=0)
+        # Calls the optimized cached reading mechanism
+        raw_df = load_master_data(st.secrets["connections"]["gsheets"]["master_sheet_url"])
         
         if not raw_df.empty:
-            # Overwrite active headings to ignore manual cell mismatch typing issues entirely
             raw_df.columns = ['ColA', 'ColB'] + list(raw_df.columns[2:])
             raw_df['CleanA'] = raw_df['ColA'].fillna('').apply(strict_clean)
             
-            # Execute verification search query
+            # Execute instant verification from local memory
             match = raw_df[raw_df['CleanA'] == search_target]
             
             if not match.empty:
@@ -120,10 +122,9 @@ else:
                 st.error("Please pick at least 1 item before attempting to submit.")
             else:
                 try:
-                    # 1. Fetch current submissions from your Entries Sheet (Sheet 2)
+                    # Fetching entries directly without caching to avoid overwriting current inputs
                     entries_df = conn.read(spreadsheet=st.secrets["connections"]["gsheets"]["entries_sheet_url"], ttl=0)
                     
-                    # 2. Formulate the new row registration entry
                     items_string = ", ".join(selected_items)
                     new_data = pd.DataFrame([{
                         "Admission Number": admission_no,
@@ -131,17 +132,16 @@ else:
                         "Selected Items": items_string
                     }])
                     
-                    # 3. Concatenate and clear matching column formats
                     updated_df = pd.concat([entries_df, new_data], ignore_index=True)
-                    
-                    # 4. Push updated dataset back to Sheet 2
                     conn.update(spreadsheet=st.secrets["connections"]["gsheets"]["entries_sheet_url"], data=updated_df)
+                    
+                    # 💡 CLEAR CACHE: Clear memory buffers so fresh data registers accurately moving forward
+                    st.cache_data.clear()
                     
                     st.success(f"🎉 Excellent! {student_name}'s registration choices ({items_string}) have been logged successfully into Sheet 2.")
                     st.balloons()
                     
                 except Exception as write_err:
                     st.error(f"Failed to record entry to database sheet: {str(write_err)}")
-
 
 
