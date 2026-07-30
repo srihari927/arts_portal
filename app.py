@@ -72,7 +72,7 @@ DATA_FILE = "festival_registrations.csv"
 if not os.path.exists(DATA_FILE):
     pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"]).to_csv(DATA_FILE, index=False)
 
-# 💡 INDEPENDENT BACKEND HELPER: Completely unlinked from layout blocks to prevent syntax errors
+# INDEPENDENT BACKEND HELPER: Completely unlinked from layout blocks to prevent syntax errors
 def send_report_email():
     try:
         current_df = pd.read_csv(DATA_FILE)
