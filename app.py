@@ -63,8 +63,11 @@ all_events = [
 def strict_clean(val):
     return ''.join(c for c in str(val).strip().lower().split('.') if c.isalnum())
 
-# 💡 UNLOCKED DB MATRIX: Force a completely clean database filename
-DATA_FILE = "registrations_final.csv"
+# Initialize state manager to assign dynamic version labels instantly
+if "db_version_tag" not in st.session_state:
+    st.session_state["db_version_tag"] = "registrations_v3_live.csv"
+
+DATA_FILE = st.session_state["db_version_tag"]
 if not os.path.exists(DATA_FILE):
     pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"]).to_csv(DATA_FILE, index=False)
 
@@ -134,13 +137,13 @@ else:
     student_name = ""
     search_target = strict_clean(admission_no)
     
-    # Read database size
+    # Verify existing local files
     if os.path.exists(DATA_FILE) and os.path.getsize(DATA_FILE) > 50:
         existing_records = pd.read_csv(DATA_FILE)
     else:
         existing_records = pd.DataFrame(columns=["Admission Number"])
     
-    # ✅ FIXED CRITICAL COERCION LOOP: If input field is short or database is small, force duplicate lock block to open!
+    # Block checking constraint
     is_duplicate = False
     if not existing_records.empty and len(search_target) > 1:
         existing_records['CleanCheck'] = existing_records['Admission Number'].astype(str).fillna('').apply(strict_clean)
@@ -158,7 +161,6 @@ else:
                 match = raw_df[raw_df['CleanA'] == search_target]
                 
                 if not match.empty:
-                    # Strip away the bracket wrapper completely
                     student_name = str(match['Studentname'].values[0]).strip()
                     st.success(f"🔓 Student Authenticated: **{student_name}** (Admission No: {admission_no})")
                 else:
@@ -191,7 +193,6 @@ else:
                 st.error("Please pick at least 1 item before attempting to submit.")
             else:
                 try:
-                    # Transaction race guard check
                     if os.path.exists(DATA_FILE) and os.path.getsize(DATA_FILE) > 50:
                         fresh_records = pd.read_csv(DATA_FILE)
                     else:
@@ -206,6 +207,7 @@ else:
                     if is_fresh_duplicate:
                         st.error("Submission blocked. Your registration details were already logged by another portal session.")
                     else:
+                        items_string = ", ".join(selected_items)
                         items_string = ", ".join(selected_items)
                         new_row = pd.DataFrame([{
                             "Admission Number": admission_no,
@@ -245,10 +247,30 @@ if admin_code == "1111":
     if st.button("🔴 Clear & Reset All Registrations (Delete Trial Entries)", use_container_width=True):
         if os.path.exists(DATA_FILE):
             os.remove(DATA_FILE)
-        pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"]).to_csv(DATA_FILE, index=False)
-        st.success("🧹 Database wiped clean! App restarted successfully.")
+        # Clear out browser engine session states completely
+        st.session_state.clear()
+        st.session_state["db_version_tag"] = "registrations_v4_prod.csv"
+        pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"]).to_csv(st.session_state["db_version_tag"], index=False)
+        st.success("🧹 System reset complete! Memory caches evicted successfully.")
         st.rerun()
 
 elif admin_code != "":
     st.error("❌ Incorrect Admin Verification Code. Access Restricted.")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
