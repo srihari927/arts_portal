@@ -207,7 +207,8 @@ admin_code = st.text_input("Enter Admin Verification Code:", type="password", ke
 
 if admin_code == "1111":
     st.success("🔑 Code Verified. Admin Options Unlocked.")
- current_df = pd.read_csv(DATA_FILE)
+    
+    current_df = pd.read_csv(DATA_FILE)
     st.info(f"📊 Live Server Analytics Counter: {len(current_df)} submissions recorded.")
     
     if st.button("📧 Email Live Master Report Table to Admin Inbox", use_container_width=True):
@@ -217,7 +218,6 @@ if admin_code == "1111":
             st.warning("Cannot email an empty table. Awaiting incoming submissions.")
             
     st.write(" ")
-    # FIXED: Re-mapped file wiping routine sequence explicitly to fix frozen reset bug loops
     if st.button("🔴 Clear & Reset All Registrations (Delete Trial Entries)", use_container_width=True):
         df_reset = pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"])
         df_reset.to_csv(DATA_FILE, index=False)
