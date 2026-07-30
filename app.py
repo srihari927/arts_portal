@@ -9,36 +9,30 @@ from email.mime.text import MIMEText
 # 1. Page Configuration
 st.set_page_config(page_title="SKPS Youth Festival SUVARNAM2k26", page_icon="🎨", layout="centered")
 
-# 2. Universal CSS Background Image Integration
-try:
-    if os.path.exists("background.png"):
-        with open("background.png", "rb") as image_file:
-            encoded_string = base64.b64encode(image_file.read()).decode()
-        
-        background_style = f"""
-        <style>
-        html, body, [data-testid="stAppViewContainer"], .main {{
-            background-image: url("data:image/png;base64,{encoded_string}") !important;
-            background-size: cover !important;
-            background-position: center !important;
-            background-repeat: no-repeat !important;
-            background-attachment: fixed !important;
-            background-color: transparent !important;
-        }}
-        [data-testid="stHeader"], [data-testid="stAppViewBlockContainer"] {{
-            background: transparent !important;
-            background-color: transparent !important;
-        }}
-        .stTextInput input, .stMultiSelect div {{
-            background-color: rgba(255, 255, 255, 0.95) !important;
-            color: #1e293b !important;
-            border-radius: 6px !important;
-        }}
-        </style>
-        """
-        st.markdown(background_style, unsafe_allow_html=True)
-except Exception:
-    pass
+# 2. Modern Native CSS Background Image Integration
+if os.path.exists("background.png"):
+    with open("background.png", "rb") as image_file:
+        encoded_string = base64.b64encode(image_file.read()).decode()
+    st.markdown(f"""
+    <style>
+    .main, [data-testid="stAppViewContainer"], [data-testid="stAppViewMain"] {{
+        background-image: url("data:image/png;base64,{encoded_string}") !important;
+        background-size: cover !important;
+        background-position: center !important;
+        background-repeat: no-repeat !important;
+        background-attachment: fixed !important;
+    }}
+    .block-container, [data-testid="stHeader"], [data-testid="stAppViewBlockContainer"] {{
+        background: transparent !important;
+        background-color: transparent !important;
+    }}
+    .stTextInput input, .stMultiSelect div {{
+        background-color: rgba(255, 255, 255, 0.95) !important;
+        color: #1e293b !important;
+        border-radius: 6px !important;
+    }}
+    </style>
+    """, unsafe_allow_html=True)
 
 # 3. Logo Sizing Configuration
 if os.path.exists("logo.png"):
@@ -126,10 +120,8 @@ except Exception:
 
 @st.cache_data(ttl=10)
 def load_master_data(url):
-    # FIXED: Reads row 1 as the true header mapping to line up parameters cleanly
     df = pd.read_csv(url, header=0)
     df = df.dropna(how='all').reset_index(drop=True)
-    # Force names explicitly to bypass column typing mismatch errors
     df.columns = ['AdmissionNo', 'StudentName'] + list(df.columns[2:])
     return df
 
@@ -157,8 +149,8 @@ else:
                 match = raw_df[raw_df['CleanA'] == search_target]
                 
                 if not match.empty:
-                    # FIXED: Slices using the verified text name mapping directly
-                    student_name = str(match.iloc[0]['StudentName']).strip()
+                    # Cleaned positional lookups to ensure exact name translation
+                    student_name = str(match['StudentName'].values[0]).strip()
                     st.success(f"🔓 Student Authenticated: **{student_name}** (Admission No: {admission_no})")
                 else:
                     st.error("❌ Invalid Entry: This Admission Number does not match any records inside your Master list.")
@@ -208,4 +200,30 @@ else:
                         st.balloons()
                         st.rerun() 
                 except Exception as write_err:
+                    st.error(f"Failed to record entry locally: {str(write_err)}")
+
+# 🔐 ADMIN DASHBOARD - SECURED EMAIL DISPATCHER & CLEANER UTILITY
+st.write("---")
+st.subheader("🛠️ Secure Admin Portal")
+admin_code = st.text_input("Enter Admin Verification Code:", type="password", key="admin_key").strip()
+if admin_code == "1111":
+    st.success("🔑 Code Verified. Admin Options Unlocked.")
+    
+    current_df = pd.read_csv(DATA_FILE)
+    st.info(f"📊 Live Server Analytics Counter: {len(current_df)} submissions recorded.")
+    
+    if st.button("📧 Email Live Master Report Table to Admin Inbox", use_container_width=True):
+        if not current_df.empty:
+            send_report_email()
+        else:
+            st.warning("Cannot email an empty table. Awaiting incoming submissions.")
+            
+    st.write(" ")
+    if st.button("🔴 Clear & Reset All Registrations (Delete Trial Entries)", use_container_width=True):
+        pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"]).to_csv(DATA_FILE, index=False)
+        st.success("🧹 Database wiped clean! App restarted.")
+        st.rerun()
+
+elif admin_code != "":
+    st.error("❌ Incorrect Admin Verification Code. Access Restricted.")
 
