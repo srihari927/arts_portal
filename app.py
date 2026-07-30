@@ -122,7 +122,6 @@ except Exception:
 def load_master_data(url):
     df = pd.read_csv(url, header=0)
     df = df.dropna(how='all').reset_index(drop=True)
-    # MATCHES EXCEL COLUMN HEADERS EXACTLY FROM YOUR SCREENSHOT
     df.columns = ['AdmissionNo', 'Studentname'] + list(df.columns[2:])
     df['AdmissionNo'] = df['AdmissionNo'].astype(str)
     return df
@@ -151,8 +150,8 @@ else:
                 match = raw_df[raw_df['CleanA'] == search_target]
                 
                 if not match.empty:
-                    # Extracts using exact row string mapping safely with zero formatting conflicts
-                    student_name = str(match['Studentname'].values[0]).strip()
+                    # Cleaned string extraction array index mapping to drop bracket elements
+                    student_name = str(match['Studentname'].to_list()[0]).strip()
                     st.success(f"🔓 Student Authenticated: **{student_name}** (Admission No: {admission_no})")
                 else:
                     st.error("❌ Invalid Entry: This Admission Number does not match any records inside your Master list.")
@@ -204,6 +203,9 @@ else:
                 except Exception as write_err:
                     st.error(f"Failed to record entry locally: {str(write_err)}")
 
+# 🔐 ADMIN DASHBOARD - SECURED EMAIL DISPATCHER & CLEANER UTILITY
+st.write("---")
+st.subheader("🛠️ Secure Admin Portal")
 # 🔐 ADMIN DASHBOARD - SECURED EMAIL DISPATCHER & CLEANER UTILITY
 st.write("---")
 st.subheader("🛠️ Secure Admin Portal")
