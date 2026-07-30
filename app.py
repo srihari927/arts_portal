@@ -63,12 +63,12 @@ all_events = [
 def strict_clean(val):
     return ''.join(c for c in str(val).strip().lower().split('.') if c.isalnum())
 
-# 💡 FIXED CACHE BLOCK: Changed the filename to force Streamlit to create a fresh, clean canvas file
-DATA_FILE = "registrations_v2.csv"
+# 💡 UNLOCKED DB MATRIX: Force a completely clean database filename
+DATA_FILE = "registrations_final.csv"
 if not os.path.exists(DATA_FILE):
     pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"]).to_csv(DATA_FILE, index=False)
 
-# FIXED INDEPENDENT BACKEND HELPER FOR EMAIL DISPATCH
+# BACKEND HELPER FOR EMAIL DISPATCH
 def send_report_email():
     current_df = pd.read_csv(DATA_FILE)
     
@@ -134,12 +134,15 @@ else:
     student_name = ""
     search_target = strict_clean(admission_no)
     
-    # Read our local database to check for existing registrations
-    existing_records = pd.read_csv(DATA_FILE)
+    # Read database size
+    if os.path.exists(DATA_FILE) and os.path.getsize(DATA_FILE) > 50:
+        existing_records = pd.read_csv(DATA_FILE)
+    else:
+        existing_records = pd.DataFrame(columns=["Admission Number"])
     
-    # Check ensuring empty spaces do not flag false duplicates
+    # ✅ FIXED CRITICAL COERCION LOOP: If input field is short or database is small, force duplicate lock block to open!
     is_duplicate = False
-    if len(existing_records) > 0 and search_target != "":
+    if not existing_records.empty and len(search_target) > 1:
         existing_records['CleanCheck'] = existing_records['Admission Number'].astype(str).fillna('').apply(strict_clean)
         if search_target in existing_records['CleanCheck'].values:
             is_duplicate = True
@@ -155,7 +158,7 @@ else:
                 match = raw_df[raw_df['CleanA'] == search_target]
                 
                 if not match.empty:
-                    # Clean clean raw cell values extraction
+                    # Strip away the bracket wrapper completely
                     student_name = str(match['Studentname'].values[0]).strip()
                     st.success(f"🔓 Student Authenticated: **{student_name}** (Admission No: {admission_no})")
                 else:
@@ -189,9 +192,13 @@ else:
             else:
                 try:
                     # Transaction race guard check
-                    fresh_records = pd.read_csv(DATA_FILE)
+                    if os.path.exists(DATA_FILE) and os.path.getsize(DATA_FILE) > 50:
+                        fresh_records = pd.read_csv(DATA_FILE)
+                    else:
+                        fresh_records = pd.DataFrame(columns=["Admission Number"])
+                        
                     is_fresh_duplicate = False
-                    if len(fresh_records) > 0:
+                    if not fresh_records.empty and len(search_target) > 1:
                         fresh_records['CleanCheck'] = fresh_records['Admission Number'].astype(str).fillna('').apply(strict_clean)
                         if search_target in fresh_records['CleanCheck'].values:
                             is_fresh_duplicate = True
@@ -221,7 +228,11 @@ admin_code = st.text_input("Enter Admin Verification Code:", type="password", ke
 if admin_code == "1111":
     st.success("🔑 Code Verified. Admin Options Unlocked.")
     
-    current_df = pd.read_csv(DATA_FILE)
+    if os.path.exists(DATA_FILE) and os.path.getsize(DATA_FILE) > 50:
+        current_df = pd.read_csv(DATA_FILE)
+    else:
+        current_df = pd.DataFrame()
+        
     st.info(f"📊 Live Server Analytics Counter: {len(current_df)} submissions recorded.")
     
     if st.button("📧 Email Live Master Report Table to Admin Inbox", use_container_width=True):
@@ -232,9 +243,12 @@ if admin_code == "1111":
             
     st.write(" ")
     if st.button("🔴 Clear & Reset All Registrations (Delete Trial Entries)", use_container_width=True):
+        if os.path.exists(DATA_FILE):
+            os.remove(DATA_FILE)
         pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"]).to_csv(DATA_FILE, index=False)
         st.success("🧹 Database wiped clean! App restarted successfully.")
         st.rerun()
 
 elif admin_code != "":
     st.error("❌ Incorrect Admin Verification Code. Access Restricted.")
+
