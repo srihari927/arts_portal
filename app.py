@@ -171,43 +171,34 @@ with st.expander("🛠️ Secure Admin Portal"):
     if admin_code == "1111":
         st.success("🔑 Code Verified. Admin Options Unlocked.")
         
-        # Action button to trigger background email compile dispatch routine
         if st.button("📧 Email Live Master Report Table to Admin Inbox", use_container_width=True):
             try:
                 if os.path.exists(DATA_FILE) and os.path.getsize(DATA_FILE) > 50:
                     current_df = pd.read_csv(DATA_FILE)
                     
-                    # Construct clean data records rows
-                    html_rows = ""
+                    # 💡 FIXED: Building HTML line-by-line using basic addition to ensure no syntax truncation errors
+                    html_report = "<html><head><style>"
+                    html_report += "body { font-family: Arial, sans-serif; margin: 20px; color: #1e293b; }"
+                    html_report += "h1 { text-align: center; color: #1e3a8a; }"
+                    html_report += "table { width: 100%; border-collapse: collapse; margin-top: 20px; }"
+                    html_report += "th { background-color: #1e3a8a; color: white; padding: 12px; text-align: left; }"
+                    html_report += "tr:nth-child(even) { background-color: #f8fafc; }"
+                    html_report += "</style></head><body>"
+                    html_report += "<h1>🏆 SKPS Youth Festival SUVARNAM2k26</h1>"
+                    html_report += "<h3 style='text-align: center; color: #64748b;'>Official Consolidated Registration Ledger</h3>"
+                    html_report += "<table><thead><tr><th>Admission No.</th><th>Student Name</th><th>Registered Items Selection Directory</th></tr></thead><tbody>"
+                    
+                    # Construct rows dynamically
                     for _, r in current_df.iterrows():
-                        html_rows += "<tr>"
-                        html_rows += "<td style='padding: 10px; border: 1px solid #cbd5e1;'>" + str(r["Admission Number"]) + "</td>"
-                        html_rows += "<td style='padding: 10px; border: 1px solid #cbd5e1;'>" + str(r["Student Name"]) + "</td>"
-                        html_rows += "<td style='padding: 10px; border: 1px solid #cbd5e1;'>" + str(r["Selected Items"]) + "</td>"
-                        html_rows += "</tr>"
+                        html_report += "<tr>"
+                        html_report += "<td style='padding: 10px; border: 1px solid #cbd5e1;'>" + str(r["Admission Number"]) + "</td>"
+                        html_report += "<td style='padding: 10px; border: 1px solid #cbd5e1;'>" + str(r["Student Name"]) + "</td>"
+                        html_report += "<td style='padding: 10px; border: 1px solid #cbd5e1;'>" + str(r["Selected Items"]) + "</td>"
+                        html_report += "</tr>"
                         
-                    # Standard string shell to avoid CSS bracket syntax errors
-                    html_template = """
-                    <html>
-                    <head>
-                        <style>
-                            body { font-family: Arial, sans-serif; margin: 20px; color: #1e293b; }
-                            h1 { text-align: center; color: #1e3a8a; }
-                            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                            th { background-color: #1e3a8a; color: white; padding: 12px; text-align: left; }
-                            tr:nth-child(even) { background-color: #f8fafc; }
-                        </style>
-                    </head>
-                    <body>
-                        <h1>🏆 SKPS Youth Festival SUVARNAM2k26</h1>
-                        <h3 style='text-align: center; color: #64748b;'>Official Consolidated Registration Ledger</h3>
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Admission No.</th>
-                                    <th>Student Name</th>
-
-
+                    html_report += "</tbody></table></body></html>"
+                    
+                    # Fetching account variables safely from secrets
 
 
 
