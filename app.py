@@ -111,7 +111,7 @@ else:
                 match = raw_df[raw_df['CleanA'] == search_target]
                 
                 if not match.empty:
-                    student_name = str(match.iloc['ColB']).strip()
+                    student_name = str(match.iloc[0]['ColB']).strip()
                     st.success(f"🔓 Student Authenticated: **{student_name}** (Admission No: {admission_no})")
                 else:
                     st.error("❌ Invalid Entry: This Admission Number does not match any records inside your Master list.")
@@ -177,26 +177,25 @@ with st.expander("🛠️ Secure Admin Portal"):
                 if os.path.exists(DATA_FILE) and os.path.getsize(DATA_FILE) > 50:
                     current_df = pd.read_csv(DATA_FILE)
                     
-                    # Construct clean data records rows inside a robust HTML layout template
+                    # Construct clean data records rows
                     html_rows = ""
                     for _, r in current_df.iterrows():
-                        html_rows += f"""
-                        <tr>
-                            <td style='padding: 10px; border: 1px solid #cbd5e1;'>{r["Admission Number"]}</td>
-                            <td style='padding: 10px; border: 1px solid #cbd5e1;'>{r["Student Name"]}</td>
-                            <td style='padding: 10px; border: 1px solid #cbd5e1;'>{r["Selected Items"]}</td>
-                        </tr>
-                        """
+                        html_rows += "<tr>"
+                        html_rows += "<td style='padding: 10px; border: 1px solid #cbd5e1;'>" + str(r["Admission Number"]) + "</td>"
+                        html_rows += "<td style='padding: 10px; border: 1px solid #cbd5e1;'>" + str(r["Student Name"]) + "</td>"
+                        html_rows += "<td style='padding: 10px; border: 1px solid #cbd5e1;'>" + str(r["Selected Items"]) + "</td>"
+                        html_rows += "</tr>"
                         
-                    html_report = f"""
+                    # Standard string shell to avoid CSS bracket syntax errors
+                    html_template = """
                     <html>
                     <head>
                         <style>
-                            body {{ font-family: Arial, sans-serif; margin: 20px; color: #1e293b; }}
-                            h1 {{ text-align: center; color: #1e3a8a; }}
-                            table {{ width: 100%; border-collapse: collapse; margin-top: 20px; }}
-                            th {{ background-color: #1e3a8a; color: white; padding: 12px; text-align: left; }}
-                            tr:nth-child(even) {{ background-color: #f8fafc; }}
+                            body { font-family: Arial, sans-serif; margin: 20px; color: #1e293b; }
+                            h1 { text-align: center; color: #1e3a8a; }
+                            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                            th { background-color: #1e3a8a; color: white; padding: 12px; text-align: left; }
+                            tr:nth-child(even) { background-color: #f8fafc; }
                         </style>
                     </head>
                     <body>
@@ -207,7 +206,7 @@ with st.expander("🛠️ Secure Admin Portal"):
                                 <tr>
                                     <th>Admission No.</th>
                                     <th>Student Name</th>
-                                    <th>Registered Items Selection Directory</th>
+
 
 
 
