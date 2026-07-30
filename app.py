@@ -207,6 +207,8 @@ with st.expander("🛠️ Secure Admin Portal"):
                                 <tr>
                                     <th>Admission No.</th>
                                     <th>Student Name</th>
+                                    <th>Registered Items Selection Directory</th>
+
 
 
 
