@@ -9,7 +9,7 @@ from email.mime.text import MIMEText
 # 1. Page Configuration
 st.set_page_config(page_title="SKPS Youth Festival SUVARNAM2k26", page_icon="🎨", layout="centered")
 
-# 2. FIXED: Universal CSS Background Image Integration
+# 2. Universal CSS Background Image Integration
 try:
     if os.path.exists("background.png"):
         with open("background.png", "rb") as image_file:
@@ -120,17 +120,16 @@ master_url = ""
 try:
     master_url = st.secrets["connections"]["gsheets"]["master_sheet_url"]
     if "edit" in master_url:
-        master_url = master_url.split("/edit")[0] + "/export?format=csv"
+        master_url = master_url.split("/edit") + "/export?format=csv"
 except Exception:
     pass
 
 @st.cache_data(ttl=10)
 def load_master_data(url):
-    # FIXED: Skips any formatting rows and reads data directly from positional data grids
-    df = pd.read_csv(url, header=None)
-    # Automatically drops completely empty rows or layout borders at the top
+    # FIXED: Reads row 1 as the true header mapping to line up parameters cleanly
+    df = pd.read_csv(url, header=0)
     df = df.dropna(how='all').reset_index(drop=True)
-    # Assign standard working headers dynamically to bypass naming typos
+    # Force names explicitly to bypass column typing mismatch errors
     df.columns = ['AdmissionNo', 'StudentName'] + list(df.columns[2:])
     return df
 
@@ -154,11 +153,11 @@ else:
             raw_df = load_master_data(master_url)
             
             if not raw_df.empty:
-                # Apply validation parameters cleanly to positional vectors
                 raw_df['CleanA'] = raw_df['AdmissionNo'].fillna('').apply(strict_clean)
                 match = raw_df[raw_df['CleanA'] == search_target]
                 
                 if not match.empty:
+                    # FIXED: Slices using the verified text name mapping directly
                     student_name = str(match.iloc[0]['StudentName']).strip()
                     st.success(f"🔓 Student Authenticated: **{student_name}** (Admission No: {admission_no})")
                 else:
@@ -207,5 +206,6 @@ else:
                         
                         st.success(f"🎉 Success! {student_name}'s event selections have been safely locked for SUVARNAM2k26.")
                         st.balloons()
-
+                        st.rerun() 
+                except Exception as write_err:
 
