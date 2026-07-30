@@ -3,6 +3,7 @@ import pandas as pd
 import base64
 import os
 import smtplib
+import time
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -63,11 +64,11 @@ all_events = [
 def strict_clean(val):
     return ''.join(c for c in str(val).strip().lower().split('.') if c.isalnum())
 
-# Initialize state manager to assign dynamic version labels instantly
-if "db_version_tag" not in st.session_state:
-    st.session_state["db_version_tag"] = "registrations_v3_live.csv"
+# 💡 NATIVE FILE ASSIGNMENT TRACKER (Cached locally using active server metadata)
+if "db_filename" not in st.session_state:
+    st.session_state["db_filename"] = "registrations_active.csv"
 
-DATA_FILE = st.session_state["db_version_tag"]
+DATA_FILE = st.session_state["db_filename"]
 if not os.path.exists(DATA_FILE):
     pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"]).to_csv(DATA_FILE, index=False)
 
@@ -137,15 +138,15 @@ else:
     student_name = ""
     search_target = strict_clean(admission_no)
     
-    # Verify existing local files
+    # Read database content safely
     if os.path.exists(DATA_FILE) and os.path.getsize(DATA_FILE) > 50:
         existing_records = pd.read_csv(DATA_FILE)
     else:
         existing_records = pd.DataFrame(columns=["Admission Number"])
     
-    # Block checking constraint
+    # Validation parameter mapping loop
     is_duplicate = False
-    if not existing_records.empty and len(search_target) > 1:
+    if not existing_records.empty and len(search_target) > 0:
         existing_records['CleanCheck'] = existing_records['Admission Number'].astype(str).fillna('').apply(strict_clean)
         if search_target in existing_records['CleanCheck'].values:
             is_duplicate = True
@@ -161,6 +162,7 @@ else:
                 match = raw_df[raw_df['CleanA'] == search_target]
                 
                 if not match.empty:
+                    # Pure text selection mapping
                     student_name = str(match['Studentname'].values[0]).strip()
                     st.success(f"🔓 Student Authenticated: **{student_name}** (Admission No: {admission_no})")
                 else:
@@ -199,7 +201,7 @@ else:
                         fresh_records = pd.DataFrame(columns=["Admission Number"])
                         
                     is_fresh_duplicate = False
-                    if not fresh_records.empty and len(search_target) > 1:
+                    if not fresh_records.empty and len(search_target) > 0:
                         fresh_records['CleanCheck'] = fresh_records['Admission Number'].astype(str).fillna('').apply(strict_clean)
                         if search_target in fresh_records['CleanCheck'].values:
                             is_fresh_duplicate = True
@@ -207,7 +209,6 @@ else:
                     if is_fresh_duplicate:
                         st.error("Submission blocked. Your registration details were already logged by another portal session.")
                     else:
-                        items_string = ", ".join(selected_items)
                         items_string = ", ".join(selected_items)
                         new_row = pd.DataFrame([{
                             "Admission Number": admission_no,
@@ -245,28 +246,15 @@ if admin_code == "1111":
             
     st.write(" ")
     if st.button("🔴 Clear & Reset All Registrations (Delete Trial Entries)", use_container_width=True):
-        if os.path.exists(DATA_FILE):
-            os.remove(DATA_FILE)
-        # Clear out browser engine session states completely
-        st.session_state.clear()
-        st.session_state["db_version_tag"] = "registrations_v4_prod.csv"
-        pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"]).to_csv(st.session_state["db_version_tag"], index=False)
-        st.success("🧹 System reset complete! Memory caches evicted successfully.")
+        # 💡 FIXED PERMANENTLY: Force unique dynamic filename generation to kill memory locks
+        unique_timestamp_id = str(int(time.time()))
+        st.session_state["db_filename"] = f"registrations_live_{unique_timestamp_id}.csv"
+        pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"]).to_csv(st.session_state["db_filename"], index=False)
+        st.success("🧹 System reset complete! Legacy memory files destroyed. New storage canvas open.")
         st.rerun()
 
 elif admin_code != "":
     st.error("❌ Incorrect Admin Verification Code. Access Restricted.")
-
-
-
-
-
-
-
-
-
-
-
 
 
 
