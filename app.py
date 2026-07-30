@@ -9,30 +9,36 @@ from email.mime.text import MIMEText
 # 1. Page Configuration
 st.set_page_config(page_title="SKPS Youth Festival SUVARNAM2k26", page_icon="🎨", layout="centered")
 
-# 2. Modern Native CSS Background Image Integration
-if os.path.exists("background.png"):
-    with open("background.png", "rb") as image_file:
-        encoded_string = base64.b64encode(image_file.read()).decode()
-    st.markdown(f"""
-    <style>
-    .main, [data-testid="stAppViewContainer"], [data-testid="stAppViewMain"] {{
-        background-image: url("data:image/png;base64,{encoded_string}") !important;
-        background-size: cover !important;
-        background-position: center !important;
-        background-repeat: no-repeat !important;
-        background-attachment: fixed !important;
-    }}
-    .block-container, [data-testid="stHeader"], [data-testid="stAppViewBlockContainer"] {{
-        background: transparent !important;
-        background-color: transparent !important;
-    }}
-    .stTextInput, .stMultiSelect {{
-        background-color: rgba(255, 255, 255, 0.95) !important;
-        border-radius: 8px !important;
-        padding: 5px !important;
-    }}
-    </style>
-    """, unsafe_allow_html=True)
+# 2. FIXED: Universal CSS Background Image Integration
+try:
+    if os.path.exists("background.png"):
+        with open("background.png", "rb") as image_file:
+            encoded_string = base64.b64encode(image_file.read()).decode()
+        
+        background_style = f"""
+        <style>
+        html, body, [data-testid="stAppViewContainer"], .main {{
+            background-image: url("data:image/png;base64,{encoded_string}") !important;
+            background-size: cover !important;
+            background-position: center !important;
+            background-repeat: no-repeat !important;
+            background-attachment: fixed !important;
+            background-color: transparent !important;
+        }}
+        [data-testid="stHeader"], [data-testid="stAppViewBlockContainer"] {{
+            background: transparent !important;
+            background-color: transparent !important;
+        }}
+        .stTextInput input, .stMultiSelect div {{
+            background-color: rgba(255, 255, 255, 0.95) !important;
+            color: #1e293b !important;
+            border-radius: 6px !important;
+        }}
+        </style>
+        """
+        st.markdown(background_style, unsafe_allow_html=True)
+except Exception:
+    pass
 
 # 3. Logo Sizing Configuration
 if os.path.exists("logo.png"):
@@ -114,13 +120,19 @@ master_url = ""
 try:
     master_url = st.secrets["connections"]["gsheets"]["master_sheet_url"]
     if "edit" in master_url:
-        master_url = master_url.split("/edit") + "/export?format=csv"
+        master_url = master_url.split("/edit")[0] + "/export?format=csv"
 except Exception:
     pass
 
-@st.cache_data(ttl=600)
+@st.cache_data(ttl=10)
 def load_master_data(url):
-    return pd.read_csv(url)
+    # FIXED: Skips any formatting rows and reads data directly from positional data grids
+    df = pd.read_csv(url, header=None)
+    # Automatically drops completely empty rows or layout borders at the top
+    df = df.dropna(how='all').reset_index(drop=True)
+    # Assign standard working headers dynamically to bypass naming typos
+    df.columns = ['AdmissionNo', 'StudentName'] + list(df.columns[2:])
+    return df
 
 # 4. STEP 1: READ ADMISSION NUMBER INPUT
 admission_no = st.text_input("🔑 Step 1: Enter Admission Number to begin:", value="", key="main_ad_input").strip()
@@ -142,13 +154,12 @@ else:
             raw_df = load_master_data(master_url)
             
             if not raw_df.empty:
-                raw_df.columns = ['ColA', 'ColB'] + list(raw_df.columns[2:])
-                raw_df['CleanA'] = raw_df['ColA'].fillna('').apply(strict_clean)
-                
+                # Apply validation parameters cleanly to positional vectors
+                raw_df['CleanA'] = raw_df['AdmissionNo'].fillna('').apply(strict_clean)
                 match = raw_df[raw_df['CleanA'] == search_target]
                 
                 if not match.empty:
-                    student_name = str(match.iloc[0]['ColB']).strip()
+                    student_name = str(match.iloc[0]['StudentName']).strip()
                     st.success(f"🔓 Student Authenticated: **{student_name}** (Admission No: {admission_no})")
                 else:
                     st.error("❌ Invalid Entry: This Admission Number does not match any records inside your Master list.")
@@ -196,18 +207,5 @@ else:
                         
                         st.success(f"🎉 Success! {student_name}'s event selections have been safely locked for SUVARNAM2k26.")
                         st.balloons()
-                        st.rerun() 
-                except Exception as write_err:
-                    st.error(f"Failed to record entry locally: {str(write_err)}")
 
-# 🔐 ADMIN DASHBOARD - SECURED EMAIL DISPATCHER & CLEANER UTILITY
-st.write("---")
-st.subheader("🛠️ Secure Admin Portal")
-admin_code = st.text_input("Enter Admin Verification Code:", type="password", key="admin_key").strip()
-
-if admin_code == "1111":
-    st.success("🔑 Code Verified. Admin Options Unlocked.")
-    
-    # Visual metrics readout summary grid layout
-    current_df = pd.read_csv(DATA_FILE)
 
