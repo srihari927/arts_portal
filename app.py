@@ -47,9 +47,6 @@ except Exception:
 st.title("🎨 SKPS Youth Festival SUVARNAM2k26")
 st.write("Please authenticate your student profile below to select your registered competition items.")
 
-# 4. STEP 1: ENTER ADMISSION NUMBER
-admission_no = st.text_input("🔑 Step 1: Enter Admission Number to begin:", value="").strip()
-
 # Full directory list of available competitive events
 all_events = [
     "Story telling (English)", "Speech (English)", "Speech (Malayalam)", "Elocution (English)",
@@ -75,6 +72,53 @@ DATA_FILE = "festival_registrations.csv"
 if not os.path.exists(DATA_FILE):
     pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"]).to_csv(DATA_FILE, index=False)
 
+# 💡 INDEPENDENT BACKEND HELPER: Completely unlinked from layout blocks to prevent syntax errors
+def send_report_email():
+    try:
+        current_df = pd.read_csv(DATA_FILE)
+        
+        # Build HTML table row-by-row
+        html_report = "<html><head><style>"
+        html_report += "body { font-family: Arial, sans-serif; margin: 20px; color: #1e293b; }"
+        html_report += "h1 { text-align: center; color: #1e3a8a; }"
+        html_report += "table { width: 100%; border-collapse: collapse; margin-top: 20px; }"
+        html_report += "th { background-color: #1e3a8a; color: white; padding: 12px; text-align: left; }"
+        html_report += "tr:nth-child(even) { background-color: #f8fafc; }"
+        html_report += "</style></head><body>"
+        html_report += "<h1>🏆 SKPS Youth Festival SUVARNAM2k26</h1>"
+        html_report += "<h3 style='text-align: center; color: #64748b;'>Official Consolidated Registration Ledger</h3>"
+        html_report += "<table><thead><tr><th>Admission No.</th><th>Student Name</th><th>Registered Items Selection Directory</th></tr></thead><tbody>"
+        
+        for _, r in current_df.iterrows():
+            html_report += "<tr>"
+            html_report += "<td style='padding: 10px; border: 1px solid #cbd5e1;'>" + str(r["Admission Number"]) + "</td>"
+            html_report += "<td style='padding: 10px; border: 1px solid #cbd5e1;'>" + str(r["Student Name"]) + "</td>"
+            html_report += "<td style='padding: 10px; border: 1px solid #cbd5e1;'>" + str(r["Selected Items"]) + "</td>"
+            html_report += "</tr>"
+            
+        html_report += "</tbody></table></body></html>"
+        
+        # Load environment keys securely
+        sender = st.secrets["email"]["sender_address"]
+        password = st.secrets["email"]["sender_password"]
+        receiver = st.secrets["email"]["receiver_address"]
+        
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = "🏆 SUVARNAM2k26 Live Registration Report Table"
+        msg['From'] = sender
+        msg['To'] = receiver
+        msg.attach(MIMEText(html_report, 'html'))
+        
+        server = smtplib.SMTP("://gmail.com", 587)
+        server.starttls()
+        server.login(sender, password)
+        server.sendmail(sender, receiver, msg.as_string())
+        server.quit()
+        
+        st.success(f"🚀 Success! The live registrations ledger has been emailed directly to {receiver}")
+    except Exception as mail_err:
+        st.error(f"Email routing pipeline failed: {str(mail_err)}")
+
 # Establish connection matrix to pull Master student lookup directory from Secrets Tab URL
 try:
     master_url = st.secrets["connections"]["gsheets"]["master_sheet_url"]
@@ -86,6 +130,9 @@ except Exception:
 @st.cache_data(ttl=600)
 def load_master_data(url):
     return pd.read_csv(url)
+
+# 4. STEP 1: READ ADMISSION NUMBER INPUT
+admission_no = st.text_input("🔑 Step 1: Enter Admission Number to begin:", value="", key="main_ad_input").strip()
 
 # 5. STEP 2: UNIQUE LOGON & PROFILE VERIFICATION ENGINE
 if not admission_no:
@@ -111,7 +158,7 @@ else:
                 match = raw_df[raw_df['CleanA'] == search_target]
                 
                 if not match.empty:
-                    student_name = str(match.iloc['ColB']).strip()
+                    student_name = str(match.iloc[0]['ColB']).strip()
                     st.success(f"🔓 Student Authenticated: **{student_name}** (Admission No: {admission_no})")
                 else:
                     st.error("❌ Invalid Entry: This Admission Number does not match any records inside your Master list.")
@@ -161,45 +208,6 @@ else:
                         st.balloons()
                         st.rerun() 
                 except Exception as write_err:
-                    st.error(f"Failed to record entry locally: {str(write_err)}")
-
-# 🔐 ADMIN DASHBOARD - SECURED EMAIL AUTOMATION ONLY
-st.write("---")
-with st.expander("🛠️ Secure Admin Portal"):
-    admin_code = st.text_input("Enter Admin Verification Code:", type="password", key="admin_key").strip()
-    
-    if admin_code == "1111":
-        st.success("🔑 Code Verified. Admin Options Unlocked.")
-        
-        if st.button("📧 Email Live Master Report Table to Admin Inbox", use_container_width=True):
-            if os.path.exists(DATA_FILE) and os.path.getsize(DATA_FILE) > 50:
-                try:
-                    current_df = pd.read_csv(DATA_FILE)
-                    
-                    # Building HTML structure cleanly row-by-row
-                    html_report = "<html><head><style>"
-                    html_report += "body { font-family: Arial, sans-serif; margin: 20px; color: #1e293b; }"
-                    html_report += "h1 { text-align: center; color: #1e3a8a; }"
-                    html_report += "table { width: 100%; border-collapse: collapse; margin-top: 20px; }"
-                    html_report += "th { background-color: #1e3a8a; color: white; padding: 12px; text-align: left; }"
-                    html_report += "tr:nth-child(even) { background-color: #f8fafc; }"
-                    html_report += "</style></head><body>"
-                    html_report += "<h1>🏆 SKPS Youth Festival SUVARNAM2k26</h1>"
-                    html_report += "<h3 style='text-align: center; color: #64748b;'>Official Consolidated Registration Ledger</h3>"
-                    html_report += "<table><thead><tr><th>Admission No.</th><th>Student Name</th><th>Registered Items Selection Directory</th></tr></thead><tbody>"
-                    
-                    for _, r in current_df.iterrows():
-                        html_report += "<tr>"
-                        html_report += "<td style='padding: 10px; border: 1px solid #cbd5e1;'>" + str(r["Admission Number"]) + "</td>"
-                        html_report += "<td style='padding: 10px; border: 1px solid #cbd5e1;'>" + str(r["Student Name"]) + "</td>"
-                        html_report += "<td style='padding: 10px; border: 1px solid #cbd5e1;'>" + str(r["Selected Items"]) + "</td>"
-                        html_report += "</tr>"
-                        
-                    html_report += "</tbody></table></body></html>"
-                    
-                    # Load environment keys directly from secrets workspace tab
-                    sender = st.secrets["email"]["sender_address"]
-
 
 
 
