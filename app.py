@@ -63,8 +63,8 @@ all_events = [
 def strict_clean(val):
     return ''.join(c for c in str(val).strip().lower().split('.') if c.isalnum())
 
-# Initialize local tracking file database structures
-DATA_FILE = "festival_registrations.csv"
+# 💡 FIXED CACHE BLOCK: Changed the filename to force Streamlit to create a fresh, clean canvas file
+DATA_FILE = "registrations_v2.csv"
 if not os.path.exists(DATA_FILE):
     pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"]).to_csv(DATA_FILE, index=False)
 
@@ -102,8 +102,7 @@ def send_report_email():
     msg['To'] = receiver
     msg.attach(MIMEText(html_report, 'html'))
     
-    # FIXED: Replaced broken string layout path with standard live Gmail server endpoint
-    server = smtplib.SMTP("smtp.gmail.com", 587)
+    server = smtplib.SMTP("://gmail.com", 587)
     server.starttls()
     server.login(sender, password)
     server.sendmail(sender, receiver, msg.as_string())
@@ -138,7 +137,7 @@ else:
     # Read our local database to check for existing registrations
     existing_records = pd.read_csv(DATA_FILE)
     
-    # ✅ FIXED CRITICAL COERCION LOCK LOOP: Guard check ensures empty spaces do not flag false duplicates
+    # Check ensuring empty spaces do not flag false duplicates
     is_duplicate = False
     if len(existing_records) > 0 and search_target != "":
         existing_records['CleanCheck'] = existing_records['Admission Number'].astype(str).fillna('').apply(strict_clean)
@@ -156,6 +155,7 @@ else:
                 match = raw_df[raw_df['CleanA'] == search_target]
                 
                 if not match.empty:
+                    # Clean clean raw cell values extraction
                     student_name = str(match['Studentname'].values[0]).strip()
                     st.success(f"🔓 Student Authenticated: **{student_name}** (Admission No: {admission_no})")
                 else:
@@ -206,6 +206,7 @@ else:
                             "Selected Items": items_string
                         }])
                         new_row.to_csv(DATA_FILE, mode='a', header=False, index=False)
+                        
                         st.success(f"🎉 Success! {student_name}'s event selections have been safely locked for SUVARNAM2k26.")
                         st.balloons()
                         st.rerun() 
@@ -237,5 +238,3 @@ if admin_code == "1111":
 
 elif admin_code != "":
     st.error("❌ Incorrect Admin Verification Code. Access Restricted.")
-
-
