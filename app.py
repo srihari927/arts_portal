@@ -207,7 +207,7 @@ admin_code = st.text_input("Enter Admin Verification Code:", type="password", ke
 
 if admin_code == "1111":
     st.success("🔑 Code Verified. Admin Options Unlocked.")
-        current_df = pd.read_csv(DATA_FILE)
+ current_df = pd.read_csv(DATA_FILE)
     st.info(f"📊 Live Server Analytics Counter: {len(current_df)} submissions recorded.")
     
     if st.button("📧 Email Live Master Report Table to Admin Inbox", use_container_width=True):
@@ -227,3 +227,4 @@ if admin_code == "1111":
 elif admin_code != "":
     st.error("❌ Incorrect Admin Verification Code. Access Restricted.")
 
+    
