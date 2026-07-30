@@ -2,30 +2,33 @@ import streamlit as st
 import pandas as pd
 import base64
 import os
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 
 # 1. Page Configuration
 st.set_page_config(page_title="SKPS Youth Festival SUVARNAM2k26", page_icon="🎨", layout="centered")
 
-# 2. Local Background Image & Viewport Layer Controls
+# 2. Modern CSS Background & Structural Wrapper Controls
 try:
     with open("background.png", "rb") as image_file:
         encoded_string = base64.b64encode(image_file.read()).decode()
     
     background_style = f"""
     <style>
-    [data-testid="stAppViewContainer"], [data-testid="stAppViewMain"] {{
+    .main, [data-testid="stAppViewContainer"], [data-testid="stAppViewMain"] {{
         background-image: url("data:image/png;base64,{encoded_string}") !important;
         background-size: cover !important;
         background-position: center !important;
         background-repeat: no-repeat !important;
         background-attachment: fixed !important;
     }}
-    [data-testid="stHeader"], [data-testid="stAppViewBlockContainer"] {{
+    .block-container, [data-testid="stHeader"], [data-testid="stAppViewBlockContainer"] {{
         background: transparent !important;
         background-color: transparent !important;
     }}
     .stTextInput, .stMultiSelect {{
-        background-color: rgba(255, 255, 255, 0.9) !important;
+        background-color: rgba(255, 255, 255, 0.95) !important;
         border-radius: 8px !important;
         padding: 5px !important;
     }}
@@ -35,9 +38,9 @@ try:
 except FileNotFoundError:
     pass
 
-# 3. Logo Sizing & SUVARNAM2k26 Branding Header Setup
+# 3. Logo Sizing Configuration
 try:
-    st.image("logo.png", width=220)
+    st.image("logo.png", width=450) 
 except Exception:
     st.write("📁 *[SKPS School Logo]*")
 
@@ -67,18 +70,16 @@ all_events = [
 def strict_clean(val):
     return ''.join(c for c in str(val).strip().lower().split('.') if c.isalnum())
 
-# Initialize local server tracking file database structures
+# Initialize local tracking file database structures
 DATA_FILE = "festival_registrations.csv"
 if not os.path.exists(DATA_FILE):
     pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"]).to_csv(DATA_FILE, index=False)
 
-# Establish connection matrix to pull Master student lookup directory
-# Directly reading as a public CSV via standard pandas engine to bypass gsheets module restrictions if any
+# Establish connection matrix to pull Master student lookup directory from Secrets Tab URL
 try:
     master_url = st.secrets["connections"]["gsheets"]["master_sheet_url"]
-    # If the secret contains an edit URL link, convert it automatically to a direct stream query export
     if "edit" in master_url:
-        master_url = master_url.split("/edit")[0] + "/export?format=csv"
+        master_url = master_url.split("/edit") + "/export?format=csv"
 except Exception:
     master_url = ""
 
@@ -86,29 +87,36 @@ except Exception:
 def load_master_data(url):
     return pd.read_csv(url)
 
-# 5. STEP 2: PROFILE VERIFICATION LOGIC
+# 5. STEP 2: UNIQUE LOGON & PROFILE VERIFICATION ENGINE
 if not admission_no:
     st.warning("⚠️ Access Locked: You must enter a valid Admission Number above to select your items.")
 else:
     student_name = ""
     search_target = strict_clean(admission_no)
     
-    try:
-        raw_df = load_master_data(master_url)
-        
-        if not raw_df.empty:
-            raw_df.columns = ['ColA', 'ColB'] + list(raw_df.columns[2:])
-            raw_df['CleanA'] = raw_df['ColA'].fillna('').apply(strict_clean)
+    # Check for duplicate entries
+    existing_records = pd.read_csv(DATA_FILE)
+    existing_records['CleanCheck'] = existing_records['Admission Number'].fillna('').apply(strict_clean)
+    
+    if search_target in existing_records['CleanCheck'].values:
+        st.error("❌ Access Denied: A registration submission entry has already been logged for this Admission Number. Duplicates are blocked.")
+    else:
+        try:
+            raw_df = load_master_data(master_url)
             
-            match = raw_df[raw_df['CleanA'] == search_target]
-            
-            if not match.empty:
-                student_name = str(match.iloc[0]['ColB']).strip()
-                st.success(f"🔓 Student Authenticated: **{student_name}** (Admission No: {admission_no})")
-            else:
-                st.error("❌ Invalid Entry: This Admission Number does not match any records inside your Master list.")
-    except Exception as e:
-        st.error(f"🔌 Critical Link Pipeline Interrupted: {str(e)}")
+            if not raw_df.empty:
+                raw_df.columns = ['ColA', 'ColB'] + list(raw_df.columns[2:])
+                raw_df['CleanA'] = raw_df['ColA'].fillna('').apply(strict_clean)
+                
+                match = raw_df[raw_df['CleanA'] == search_target]
+                
+                if not match.empty:
+                    student_name = str(match.iloc['ColB']).strip()
+                    st.success(f"🔓 Student Authenticated: **{student_name}** (Admission No: {admission_no})")
+                else:
+                    st.error("❌ Invalid Entry: This Admission Number does not match any records inside your Master list.")
+        except Exception as e:
+            st.error(f"🔌 Critical Link Pipeline Interrupted: {str(e)}")
 
     # 6. STEP 3: ITEM SELECTION & LOCAL DATABASE STORAGE 
     if student_name:
@@ -135,84 +143,70 @@ else:
                 st.error("Please pick at least 1 item before attempting to submit.")
             else:
                 try:
-                    items_string = ", ".join(selected_items)
-                    new_row = pd.DataFrame([{
-                        "Admission Number": admission_no,
-                        "Student Name": student_name,
-                        "Selected Items": items_string
-                    }])
-                    new_row.to_csv(DATA_FILE, mode='a', header=False, index=False)
+                    fresh_check = pd.read_csv(DATA_FILE)
+                    fresh_check['CleanCheck'] = fresh_check['Admission Number'].fillna('').apply(strict_clean)
                     
-                    st.success(f"🎉 Success! {student_name}'s event selections have been safely locked for SUVARNAM2k26.")
-                    st.balloons()
+                    if search_target in fresh_check['CleanCheck'].values:
+                        st.error("Submission blocked. Your registration details were already logged by another portal session.")
+                    else:
+                        items_string = ", ".join(selected_items)
+                        new_row = pd.DataFrame([{
+                            "Admission Number": admission_no,
+                            "Student Name": student_name,
+                            "Selected Items": items_string
+                        }])
+                        new_row.to_csv(DATA_FILE, mode='a', header=False, index=False)
+                        
+                        st.success(f"🎉 Success! {student_name}'s event selections have been safely locked for SUVARNAM2k26.")
+                        st.balloons()
+                        st.rerun() 
                 except Exception as write_err:
                     st.error(f"Failed to record entry locally: {str(write_err)}")
 
-# 🔐 ADMIN DASHBOARD - ZERO LIBRARIES BULLETPROOF REPORT GENERATOR
+# 🔐 ADMIN DASHBOARD - SECURED EMAIL AUTOMATION ONLY
 st.write("---")
-with st.expander("🛠️ Admin Portal: Export SUVARNAM2k26 Master Ledger Reports"):
-    try:
-        if os.path.exists(DATA_FILE) and os.path.getsize(DATA_FILE) > 50:
-            current_df = pd.read_csv(DATA_FILE)
-            st.write(f"Total Student Submissions Recorded: **{len(current_df)}**")
-            st.dataframe(current_df, use_container_width=True)
-            
-            # Create a completely stylized HTML print layout string
-            html_rows = ""
-            for _, r in current_df.iterrows():
-                html_rows += f"""
-                <tr>
-                    <td style='padding: 10px; border: 1px solid #cbd5e1;'>{r["Admission Number"]}</td>
-                    <td style='padding: 10px; border: 1px solid #cbd5e1;'>{r["Student Name"]}</td>
-                    <td style='padding: 10px; border: 1px solid #cbd5e1;'>{r["Selected Items"]}</td>
-                </tr>
-                """
-                
-            html_report = f"""
-            <html>
-            <head>
-                <title>SUVARNAM2k26 Master Report</title>
-                <style>
-                    body {{ font-family: Arial, sans-serif; margin: 40px; color: #1e293b; }}
-                    h1 {{ text-align: center; color: #1e3a8a; }}
-                    table {{ width: 100%; border-collapse: collapse; margin-top: 20px; }}
-                    th {{ background-color: #1e3a8a; color: white; padding: 12px; text-align: left; }}
-                    tr:nth-child(even) {{ background-color: #f8fafc; }}
-                </style>
-            </head>
-            <body>
-                <h1>🏆 SKPS Youth Festival SUVARNAM2k26</h1>
-                <h3 style='text-align: center; color: #64748b;'>Official Consolidated Registration Ledger</h3>
-                <table>
-                    <thead>
+with st.expander("🛠️ Secure Admin Portal"):
+    admin_code = st.text_input("Enter Admin Verification Code:", type="password", key="admin_key").strip()
+    
+    if admin_code == "1111":
+        st.success("🔑 Code Verified. Admin Options Unlocked.")
+        
+        # Action button to trigger background email compile dispatch routine
+        if st.button("📧 Email Live Master Report Table to Admin Inbox", use_container_width=True):
+            try:
+                if os.path.exists(DATA_FILE) and os.path.getsize(DATA_FILE) > 50:
+                    current_df = pd.read_csv(DATA_FILE)
+                    
+                    # Construct clean data records rows inside a robust HTML layout template
+                    html_rows = ""
+                    for _, r in current_df.iterrows():
+                        html_rows += f"""
                         <tr>
-                            <th>Admission No.</th>
-                            <th>Student Name</th>
-                            <th>Registered Items Selection Directory</th>
+                            <td style='padding: 10px; border: 1px solid #cbd5e1;'>{r["Admission Number"]}</td>
+                            <td style='padding: 10px; border: 1px solid #cbd5e1;'>{r["Student Name"]}</td>
+                            <td style='padding: 10px; border: 1px solid #cbd5e1;'>{r["Selected Items"]}</td>
                         </tr>
-                    </thead>
-                    <tbody>
-                        {html_rows}
-                    </tbody>
-                </table>
-                <script>window.print();</script>
-            </body>
-            </html>
-            """
-            
-            # Provide an instant download button for the Master Ledger Web Report
-            st.download_button(
-                label="📥 Download Tabular Master Ledger Report (HTML Document)",
-                data=html_report,
-                file_name="SUVARNAM2k26_Master_Registrations.html",
-                mime="text/html",
-                use_container_width=True
-            )
-            st.caption("💡 *Tip: Open this downloaded file in any browser and press Ctrl+P (or Cmd+P) to instantly save it as a clean PDF document.*")
-        else:
-            st.info("Awaiting initial submissions data streams from students before report compilation tools initialize.")
-    except Exception as report_err:
-        st.error(f"Admin compilation workflow error: {str(report_err)}")
+                        """
+                        
+                    html_report = f"""
+                    <html>
+                    <head>
+                        <style>
+                            body {{ font-family: Arial, sans-serif; margin: 20px; color: #1e293b; }}
+                            h1 {{ text-align: center; color: #1e3a8a; }}
+                            table {{ width: 100%; border-collapse: collapse; margin-top: 20px; }}
+                            th {{ background-color: #1e3a8a; color: white; padding: 12px; text-align: left; }}
+                            tr:nth-child(even) {{ background-color: #f8fafc; }}
+                        </style>
+                    </head>
+                    <body>
+                        <h1>🏆 SKPS Youth Festival SUVARNAM2k26</h1>
+                        <h3 style='text-align: center; color: #64748b;'>Official Consolidated Registration Ledger</h3>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Admission No.</th>
+                                    <th>Student Name</th>
 
 
 
