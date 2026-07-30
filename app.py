@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import base64
 import random
+from streamlit_gsheets import GSheetsConnection
 
 # 1. Page Configuration
 st.set_page_config(page_title="Arts Festival Registration Portal", page_icon="🎨", layout="centered")
@@ -41,7 +42,7 @@ st.write("Please authenticate your profile below to unlock event selection.")
 # 4. STEP 1: ENTER ADMISSION NUMBER
 admission_no = st.text_input("🔑 Step 1: Enter Admission Number to begin:", value="").strip()
 
-# Full list of 56 available events
+# Full list of 55 available events
 all_events = [
     "Story telling (English)", "Speech (English)", "Speech (Malayalam)", "Elocution (English)",
     "Elocution (Malayalam)", "Elocution (Hindi)", "Extempore (English)", "Extempore (Malayalam)",
@@ -70,12 +71,12 @@ else:
     search_target = strict_clean(admission_no)
     
     try:
-        # Appends a fully randomized timestamp query parameter to force Google to compile a fresh data block
-        base_url = "https://google.com"
-        cache_buster_url = f"{base_url}&cache={random.randint(100000, 999999)}"
+        # Establish connection with Google Sheets using Streamlit Secrets
+        conn = st.connection("gsheets", type=GSheetsConnection)
         
-        # Pull raw dataset streaming structures natively via pandas engine
-        raw_df = pd.read_csv(cache_buster_url)
+        # Read the Master Student Sheet (Sheet 1) from secrets configuration
+        # This automatically appends a cache buster under the hood to ensure live data
+        raw_df = conn.read(spreadsheet=st.secrets["connections"]["gsheets"]["master_sheet_url"], ttl=0)
         
         if not raw_df.empty:
             # Overwrite active headings to ignore manual cell mismatch typing issues entirely
@@ -89,7 +90,7 @@ else:
                 student_name = str(match.iloc[0]['ColB']).strip()
                 st.success(f"🔓 Student Authenticated: **{student_name}** (Admission No: {admission_no})")
             else:
-                st.error("❌ Invalid Entry: This Admission Number does not match any row records inside your Master list. Please review Column A row entries.")
+                st.error("❌ Invalid Entry: This Admission Number does not match any records inside your Master list.")
     except Exception as e:
         st.error(f"🔌 Critical Link Pipeline Interrupted: {str(e)}")
 
@@ -118,8 +119,29 @@ else:
             if total_selected == 0:
                 st.error("Please pick at least 1 item before attempting to submit.")
             else:
-                items_string = ", ".join(selected_items)
-                st.success(f"🎉 Excellent! {student_name}'s registration choices ({items_string}) have been logged successfully into Sheet 2.")
-                st.balloons()
+                try:
+                    # 1. Fetch current submissions from your Entries Sheet (Sheet 2)
+                    entries_df = conn.read(spreadsheet=st.secrets["connections"]["gsheets"]["entries_sheet_url"], ttl=0)
+                    
+                    # 2. Formulate the new row registration entry
+                    items_string = ", ".join(selected_items)
+                    new_data = pd.DataFrame([{
+                        "Admission Number": admission_no,
+                        "Student Name": student_name,
+                        "Selected Items": items_string
+                    }])
+                    
+                    # 3. Concatenate and clear matching column formats
+                    updated_df = pd.concat([entries_df, new_data], ignore_index=True)
+                    
+                    # 4. Push updated dataset back to Sheet 2
+                    conn.update(spreadsheet=st.secrets["connections"]["gsheets"]["entries_sheet_url"], data=updated_df)
+                    
+                    st.success(f"🎉 Excellent! {student_name}'s registration choices ({items_string}) have been logged successfully into Sheet 2.")
+                    st.balloons()
+                    
+                except Exception as write_err:
+                    st.error(f"Failed to record entry to database sheet: {str(write_err)}")
+
 
 
