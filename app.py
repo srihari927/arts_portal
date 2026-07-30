@@ -19,7 +19,6 @@ try:
     
     background_style = f"""
     <style>
-    /* Force main app structural framework viewports to utilize background asset data */
     [data-testid="stAppViewContainer"], [data-testid="stAppViewMain"] {{
         background-image: url("data:image/png;base64,{encoded_string}") !important;
         background-size: cover !important;
@@ -27,12 +26,10 @@ try:
         background-repeat: no-repeat !important;
         background-attachment: fixed !important;
     }}
-    /* Clear default canvas overlay backdrops */
     [data-testid="stHeader"], [data-testid="stAppViewBlockContainer"] {{
         background: transparent !important;
         background-color: transparent !important;
     }}
-    /* Render interactive forms cleanly on top of abstract backgrounds */
     .stTextInput, .stMultiSelect {{
         background-color: rgba(255, 255, 255, 0.9) !important;
         border-radius: 8px !important;
@@ -150,7 +147,7 @@ else:
                 except Exception as write_err:
                     st.error(f"Failed to record entry locally: {str(write_err)}")
 
-# 🔐 ADMIN DASHBOARD COMPILING TOOL PANEL (Located securely at the foot margin)
+# 🔐 ADMIN DASHBOARD COMPILING TOOL PANEL
 st.write("---")
 with st.expander("🛠️ Admin Portal: Export SUVARNAM2k26 Master Ledger Reports"):
     try:
@@ -159,7 +156,6 @@ with st.expander("🛠️ Admin Portal: Export SUVARNAM2k26 Master Ledger Report
             st.write(f"Total Student Submissions Recorded: **{len(current_df)}**")
             st.dataframe(current_df, use_container_width=True)
             
-            # --- REPORTLAB COMPILER ENGINE FOR SUMMARY LANDSCAPE TABLE ---
             buffer = io.BytesIO()
             doc = SimpleDocTemplate(buffer, pagesize=landscape(letter), rightMargin=30, leftMargin=30, topMargin=40, bottomMargin=40)
             story = []
@@ -180,14 +176,12 @@ with st.expander("🛠️ Admin Portal: Export SUVARNAM2k26 Master Ledger Report
             story.append(Paragraph("🏆 SKPS Youth Festival SUVARNAM2k26 - Master Ledger", title_style))
             story.append(Spacer(1, 10))
             
-            # Formulate structured headings grid matrix
             table_data = [[
                 Paragraph("Admission No.", th_style),
                 Paragraph("Student Name", th_style),
                 Paragraph("Registered Items Selection Directory", th_style)
             ]]
             
-            # Pack current entries into cell blocks
             for _, r in current_df.iterrows():
                 table_data.append([
                     Paragraph(str(r["Admission Number"]), td_style),
@@ -195,8 +189,8 @@ with st.expander("🛠️ Admin Portal: Export SUVARNAM2k26 Master Ledger Report
                     Paragraph(str(r["Selected Items"]), td_style)
                 ])
             
-            # FIXED: Explicit column width layout widths array added here
-            report_table = Table(table_data, colWidths=[100, 180, 450])
+            # FIXED: Removed the colWidths parameter entirely to let ReportLab auto-calculate layout constraints safely
+            report_table = Table(table_data)
             report_table.setStyle(TableStyle([
                 ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1E3A8A')),
                 ('ALIGN', (0,0), (-1,-1), 'LEFT'),
@@ -216,5 +210,12 @@ with st.expander("🛠️ Admin Portal: Export SUVARNAM2k26 Master Ledger Report
                 data=pdf_out,
                 file_name="SUVARNAM2k26_Master_Registrations.pdf",
                 mime="application/pdf",
+                use_container_width=True
+            )
+        else:
+            st.info("Awaiting initial submissions data streams from students before report compilation tools initialize.")
+    except Exception as pdf_gen_err:
+        st.error(f"Admin compilation workflow error: {str(pdf_gen_err)}")
+
 
 
