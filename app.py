@@ -113,17 +113,15 @@ def send_report_email():
 master_url = ""
 try:
     master_url = st.secrets["connections"]["gsheets"]["master_sheet_url"]
-    if "edit" in master_url:
-        master_url = master_url.split("/edit") + "/export?format=csv"
 except Exception:
     pass
 
 @st.cache_data(ttl=5)
 def load_master_data(url):
-    df = pd.read_csv(url, header=0)
+    df = pd.read_excel(url, engine='openpyxl', header=0)
     df = df.dropna(how='all').reset_index(drop=True)
     df.columns = ['AdmissionNo', 'Studentname'] + list(df.columns[2:])
-    df['AdmissionNo'] = df['AdmissionNo'].astype(str)
+    df['AdmissionNo'] = df['AdmissionNo'].astype(str).str.split('.').str[0].str.strip()
     return df
 
 # 4. STEP 1: READ ADMISSION NUMBER INPUT
@@ -150,7 +148,7 @@ else:
                 match = raw_df[raw_df['CleanA'] == search_target]
                 
                 if not match.empty:
-                    # Cleaned string extraction array index mapping to drop bracket elements
+                    # Extracts using exact row string mapping safely with zero formatting conflicts
                     student_name = str(match['Studentname'].to_list()[0]).strip()
                     st.success(f"🔓 Student Authenticated: **{student_name}** (Admission No: {admission_no})")
                 else:
@@ -206,11 +204,7 @@ else:
 # 🔐 ADMIN DASHBOARD - SECURED EMAIL DISPATCHER & CLEANER UTILITY
 st.write("---")
 st.subheader("🛠️ Secure Admin Portal")
-# 🔐 ADMIN DASHBOARD - SECURED EMAIL DISPATCHER & CLEANER UTILITY
-st.write("---")
-st.subheader("🛠️ Secure Admin Portal")
 admin_code = st.text_input("Enter Admin Verification Code:", type="password", key="admin_key").strip()
-
 if admin_code == "1111":
     st.success("🔑 Code Verified. Admin Options Unlocked.")
     
@@ -231,4 +225,3 @@ if admin_code == "1111":
 
 elif admin_code != "":
     st.error("❌ Incorrect Admin Verification Code. Access Restricted.")
-
