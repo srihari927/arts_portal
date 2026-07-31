@@ -227,21 +227,18 @@ else:
                         }])
                         new_row.to_csv(DATA_FILE, mode='a', header=False, index=False)
                         
-                        st.session_state["just_registered_target"] = search_target
-                        st.rerun() 
-                except Exception as write_err:
-                    st.error(f"Failed to record entry locally: {str(write_err)}")
-
+                                            else:
+                        items_string = ", ".join(selected_items)
+                        new_row = pd.DataFrame([{
+                            "Admission Number": str(admission_no),
+                            "Student Name": str(student_name),
                             "Selected Items": str(items_string)
                         }])
                         new_row.to_csv(DATA_FILE, mode='a', header=False, index=False)
                         
                         st.session_state["just_registered_target"] = search_target
-                        st.rerun() 
-                except Exception as write_err:
-                    st.error(f"Failed to record entry locally: {str(write_err)}")
+                        st.rerun()
 
-# 🔐 ADMIN DASHBOARD - SECURED DATA BACKUP, REPORTING & CLEANING UTILITY
 st.write("---")
 st.subheader("🛠️ Secure Admin Portal")
 admin_code = st.text_input("Enter Admin Verification Code:", type="password", key="admin_key").strip()
