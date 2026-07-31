@@ -82,7 +82,7 @@ def get_live_registrations():
             return pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"])
     return pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"])
 
-# 📧 FIXED SECURE BACKEND HELPER FOR EMAIL DISPATCH (WITH INTEGRATED DNS RE-ROUTING FALLBACK)
+# SECURE BACKEND HELPER FOR EMAIL DISPATCH
 def send_report_email():
     current_df = get_live_registrations()
     html_rows = ""
@@ -118,7 +118,6 @@ def send_report_email():
     msg['To'] = receiver
     msg.attach(MIMEText(html_report, 'html'))
     
-    # ✅ FIX: Tests primary secure channel routing first, falls back instantly to secondary endpoint if cloud nodes glitch out
     try:
         server = smtplib.SMTP("://gmail.com", 587, timeout=15)
         server.starttls()
@@ -177,7 +176,7 @@ else:
             match = master_df[master_df['CleanA'] == search_target]
             
             if not match.empty:
-                student_name = str(match['Studentname'].values).strip()
+                student_name = str(match['Studentname'].values[0]).strip()
                 st.success(f"🔓 Student Authenticated: **{student_name}** (Admission No: {admission_no})")
             else:
                 st.error("❌ Invalid Entry: This Admission Number does not match any records inside your Master list.")
@@ -212,8 +211,8 @@ else:
                     fresh_live_df = get_live_registrations()
                     is_fresh_duplicate = False
                     if len(fresh_live_df) > 0 and len(search_target) > 0:
-                    if len(fresh_live_df) > 0 and len(search_target) > 0:
                         fresh_live_df['CleanCheck'] = fresh_live_df['Admission Number'].astype(str).fillna('').apply(strict_clean)
+                        if search_target in fresh_live_df['CleanCheck'].values:
                         if search_target in fresh_live_df['CleanCheck'].values:
                             is_fresh_duplicate = True
                             
@@ -272,5 +271,3 @@ if admin_code == "1111":
 
 elif admin_code != "":
     st.error("❌ Incorrect Admin Verification Code. Access Restricted.")
-
-
