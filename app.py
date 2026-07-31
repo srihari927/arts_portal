@@ -125,7 +125,8 @@ else:
             match = master_df[master_df['CleanA'] == search_target]
             
             if not match.empty:
-                student_name = str(match['Studentname'].values).strip()
+                # ✅ FIXED PERMANENTLY: Fetches raw scalar string at data coordinate index positional boundary 0 
+                student_name = str(match['Studentname'].values[0]).strip()
                 st.success(f"🔓 Student Authenticated: **{student_name}** (Admission No: {admission_no})")
             else:
                 st.error("❌ Invalid Entry: This Admission Number does not match any records inside your Master list.")
@@ -182,7 +183,6 @@ else:
                     st.error(f"Failed to record entry locally: {str(write_err)}")
 
 # 🔐 ADMIN DASHBOARD - SECURED DATA BACKUP & CLEANING UTILITY
-# 🔐 ADMIN DASHBOARD - SECURED DATA BACKUP & CLEANING UTILITY
 st.write("---")
 st.subheader("🛠️ Secure Admin Portal")
 admin_code = st.text_input("Enter Admin Verification Code:", type="password", key="final_admin_pass_input_field").strip()
@@ -205,6 +205,7 @@ if admin_code == "9633914904":
             
     st.write(" ")
     if st.button("🔴 Clear & Reset All Registrations (Delete Trial Entries)", use_container_width=True, key="absolute_final_unique_wipe_button_key"):
+    if st.button("🔴 Clear & Reset All Registrations (Delete Trial Entries)", use_container_width=True, key="absolute_final_unique_wipe_button_key"):
         pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"]).to_csv(DATA_FILE, index=False)
         st.session_state["just_registered_target"] = ""
         st.success("🧹 Local ledger database wiped clean! App restarted safely.")
@@ -212,5 +213,7 @@ if admin_code == "9633914904":
 
 elif admin_code != "":
     st.error("❌ Incorrect Admin Verification Code. Access Restricted.")
+
+
 
 
