@@ -82,7 +82,7 @@ def get_live_registrations():
             return pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"])
     return pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"])
 
-# 📧 SECURE BACKEND HELPER FOR EMAIL DISPATCH (WITH NETWORK GLITCH FALLBACK)
+# SECURE BACKEND HELPER FOR EMAIL DISPATCH
 def send_report_email():
     current_df = get_live_registrations()
     html_rows = ""
