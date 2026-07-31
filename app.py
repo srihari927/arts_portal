@@ -69,7 +69,7 @@ all_events = [
 def strict_clean(val):
     return ''.join(c for c in str(val).strip().lower().split('.') if c.isalnum())
 
-# 💡 UN-LOCKED STORAGE CANVAS: Fixed name schema to permanently sidestep trailing ghost duplicate matches
+# Initialize local database file paths cleanly
 DATA_FILE = "suvarnam_live_ledger.csv"
 if not os.path.exists(DATA_FILE) or os.path.getsize(DATA_FILE) < 10:
     pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"]).to_csv(DATA_FILE, index=False)
@@ -82,7 +82,7 @@ def get_live_registrations():
             return pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"])
     return pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"])
 
-# BACKEND HELPER FOR EMAIL DISPATCH
+# FIXED INDEPENDENT BACKEND HELPER FOR EMAIL DISPATCH
 def send_report_email():
     current_df = get_live_registrations()
     
@@ -115,7 +115,35 @@ def send_report_email():
     
     msg = MIMEMultipart('alternative')
     msg['Subject'] = "🏆 SUVARNAM2k26 Real-Time Registration Table"
-    # 5. STEP 2: UNIQUE LOGON & PROFILE VERIFICATION ENGINE (WITH FIXED EMPTY-ROW LOCK BLOCK)
+    msg['From'] = sender
+    msg['To'] = receiver
+    msg.attach(MIMEText(html_report, 'html'))
+    
+    # FIXED: Restored clean live SMTP destination link coordinates
+    server = smtplib.SMTP("smtp.gmail.com", 587)
+    server.starttls()
+    server.login(sender, password)
+    server.sendmail(sender, receiver, msg.as_string())
+    server.quit()
+    st.success(f"🚀 Success! The live registrations ledger has been emailed directly to {receiver}")
+
+# FAST LOCAL MASTER SHEET LOOKUP 
+@st.cache_data(ttl=600)
+def load_master_data():
+    if os.path.exists("master_sheet.xlsx"):
+        df = pd.read_excel("master_sheet.xlsx", engine='openpyxl', header=0)
+        df = df.dropna(how='all').reset_index(drop=True)
+        df.columns = ['AdmissionNo', 'Studentname'] + list(df.columns[2:])
+        df['AdmissionNo'] = df['AdmissionNo'].astype(str).str.split('.').str.get(0).str.strip()
+        return df
+    return pd.DataFrame(columns=['AdmissionNo', 'Studentname'])
+
+master_df = load_master_data()
+
+# ✅ RE-ORDERED CRITICAL ROOT STEP: Read admission input before triggering step 2 loop calculations
+admission_no = st.text_input("🔑 Step 1: Enter Admission Number to begin:", value="", key="main_ad_input").strip()
+
+# 5. STEP 2: UNIQUE LOGON & PROFILE VERIFICATION ENGINE
 if not admission_no:
     st.warning("⚠️ Access Locked: You must enter a valid Admission Number above to select your items.")
 else:
@@ -125,7 +153,7 @@ else:
     live_df = get_live_registrations()
     is_duplicate = False
     
-    # ✅ FIXED CRITICAL GUARD: Completely bypasses the duplicate tracker loop if the file database holds 0 submissions
+    # FIXED ROW GUARD: Keeps validation block open on blank canvases
     if len(live_df) > 0 and len(search_target) > 0:
         live_df['CleanCheck'] = live_df['Admission Number'].astype(str).fillna('').apply(strict_clean)
         if search_target in live_df['CleanCheck'].values:
@@ -139,45 +167,13 @@ else:
             match = master_df[master_df['CleanA'] == search_target]
             
             if not match.empty:
-                # Extracts raw clean string scalar name completely clear of lists/brackets
+                # Extracts cleanly clear of annotation leaks
                 student_name = str(match['Studentname'].values[0]).strip()
                 st.success(f"🔓 Student Authenticated: **{student_name}** (Admission No: {admission_no})")
             else:
                 st.error("❌ Invalid Entry: This Admission Number does not match any records inside your Master list.")
         else:
-            st.error("📁 Master index layout spreadsheet file 'master_sheet.xlsx' not found inside directory workspace.")
-
-# 5. STEP 2: PROFILE VERIFICATION & LIVE DUPLICATE GUARD
-if not admission_no:
-    st.warning("⚠️ Access Locked: You must enter a valid Admission Number above to select your items.")
-else:
-    student_name = ""
-    search_target = strict_clean(admission_no)
-    
-    live_df = get_live_registrations()
-    is_duplicate = False
-    
-    # ✅ FIXED CRITICAL GUARD: Only evaluates double submissions if the tracking input and database rows are completely real
-    if not live_df.empty and len(search_target) > 0:
-        live_df['CleanCheck'] = live_df['Admission Number'].astype(str).fillna('').apply(strict_clean)
-        if search_target in live_df['CleanCheck'].values:
-            is_duplicate = True
-
-    if is_duplicate:
-        st.error("❌ Access Denied: A registration submission entry has already been logged for this Admission Number. Duplicates are blocked.")
-    else:
-        if not master_df.empty:
-            master_df['CleanA'] = master_df['AdmissionNo'].fillna('').apply(strict_clean)
-            match = master_df[master_df['CleanA'] == search_target]
-            
-            if not match.empty:
-                # Extracts raw clean string scalar name completely clear of lists/brackets using native pandas series matching
-                student_name = str(match.iloc[0]['Studentname']).strip()
-                st.success(f"🔓 Student Authenticated: **{student_name}** (Admission No: {admission_no})")
-            else:
-                st.error("❌ Invalid Entry: This Admission Number does not match any records inside your Master list.")
-        else:
-            st.error("📁 Master index layout spreadsheet file 'master_sheet.xlsx' not found inside directory workspace.")
+            st.error("📁 Master index layout spreadsheet file 'master_sheet.xlsx' not found inside repo workspace.")
 
     # 6. STEP 3: ITEM SELECTION & LOCAL DATABASE STORAGE 
     if student_name:
@@ -203,33 +199,31 @@ else:
             if total_selected == 0:
                 st.error("Please pick at least 1 item before attempting to submit.")
             else:
-                # Final loop check to avoid double submit collisions
-                fresh_live_df = get_live_registrations()
-                is_fresh_duplicate = False
-                if not fresh_live_df.empty and len(search_target) > 0:
-                    fresh_live_df['CleanCheck'] = fresh_live_df['Admission Number'].astype(str).fillna('').apply(strict_clean)
-                    if search_target in fresh_live_df['CleanCheck'].values:
-                        is_fresh_duplicate = True
-                        
-                if is_fresh_duplicate:
-                    st.error("Submission blocked. Your registration details were already logged by another portal session.")
-                else:
-                    try:
+                try:
+                    fresh_live_df = get_live_registrations()
+                    is_fresh_duplicate = False
+                    if len(fresh_live_df) > 0 and len(search_target) > 0:
+                        fresh_live_df['CleanCheck'] = fresh_live_df['Admission Number'].astype(str).fillna('').apply(strict_clean)
+                        if search_target in fresh_live_df['CleanCheck'].values:
+                            is_fresh_duplicate = True
+                            
+                    if is_fresh_duplicate:
+                        st.error("Submission blocked. Your registration details were already logged by another portal session.")
+                    else:
                         items_string = ", ".join(selected_items)
+                        new_row = pd.DataFrame([{
                         new_row = pd.DataFrame([{
                             "Admission Number": str(admission_no),
                             "Student Name": str(student_name),
                             "Selected Items": str(items_string)
                         }])
-                        
-                        # Direct stream appends to local canvas disk destination file
                         new_row.to_csv(DATA_FILE, mode='a', header=False, index=False)
                         
                         st.success(f"🎉 Success! {student_name}'s event selections have been safely locked for SUVARNAM2k26.")
                         st.balloons()
-                        st.rerun()
-                    except Exception as write_err:
-                        st.error(f"Failed to record entry safely: {str(write_err)}")
+                        st.rerun() 
+                except Exception as write_err:
+                    st.error(f"Failed to record entry locally: {str(write_err)}")
 
 # 🔐 ADMIN DASHBOARD - SECURED DATA BACKUP, REPORTING & CLEANING UTILITY
 st.write("---")
@@ -242,7 +236,7 @@ if admin_code == "1111":
     current_live_df = get_live_registrations()
     st.info(f"📊 Live Server Analytics Counter: {len(current_live_df)} secure entries recorded.")
     
-    # Back-up downloader utility setup to safely extract csv entries locally anytime
+    # Back-up downloader backup engine layout
     if not current_live_df.empty:
         csv_data = current_live_df.to_csv(index=False).encode('utf-8')
         st.download_button(
@@ -271,5 +265,4 @@ if admin_code == "1111":
 
 elif admin_code != "":
     st.error("❌ Incorrect Admin Verification Code. Access Restricted.")
-
 
