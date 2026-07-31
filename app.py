@@ -207,16 +207,14 @@ else:
                         if search_target in fresh_live_df['CleanCheck'].values:
                             is_fresh_duplicate = True
                             
-                    if is_fresh_duplicate:
-                        st.error("Submission blocked. Your registration details were already logged by another portal session.")
-                    else:
-                        items_string = ", ".join(selected_items)
-                        new_row = pd.DataFrame([{
+                                            # Build the fresh data log dictionary securely
                         new_row = pd.DataFrame([{
                             "Admission Number": str(admission_no),
                             "Student Name": str(student_name),
                             "Selected Items": str(items_string)
                         }])
+                        
+                        # Append the verified row record to the tracking file database
                         new_row.to_csv(DATA_FILE, mode='a', header=False, index=False)
                         
                         st.success(f"🎉 Success! {student_name}'s event selections have been safely locked for SUVARNAM2k26.")
@@ -236,7 +234,7 @@ if admin_code == "1111":
     current_live_df = get_live_registrations()
     st.info(f"📊 Live Server Analytics Counter: {len(current_live_df)} secure entries recorded.")
     
-    # Back-up downloader backup engine layout
+    # Secure backup download matrix loop setup
     if not current_live_df.empty:
         csv_data = current_live_df.to_csv(index=False).encode('utf-8')
         st.download_button(
@@ -265,4 +263,3 @@ if admin_code == "1111":
 
 elif admin_code != "":
     st.error("❌ Incorrect Admin Verification Code. Access Restricted.")
-
