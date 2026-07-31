@@ -3,7 +3,6 @@ import pandas as pd
 import base64
 import os
 import smtplib
-import time
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -64,18 +63,17 @@ all_events = [
 def strict_clean(val):
     return ''.join(c for c in str(val).strip().lower().split('.') if c.isalnum())
 
-# 💡 NATIVE FILE ASSIGNMENT TRACKER (Cached locally using active server metadata)
-if "db_filename" not in st.session_state:
-    st.session_state["db_filename"] = "registrations_active.csv"
-
-DATA_FILE = st.session_state["db_filename"]
+# 💡 FIXED: single fixed ledger file shared by every user/session — NOT stored
+# in st.session_state, which is private to each browser session and was the
+# root cause of both the false-duplicate bug and the broken reset button.
+DATA_FILE = "registrations_active.csv"
 if not os.path.exists(DATA_FILE):
     pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"]).to_csv(DATA_FILE, index=False)
 
 # BACKEND HELPER FOR EMAIL DISPATCH
 def send_report_email():
     current_df = pd.read_csv(DATA_FILE)
-    
+
     html_report = "<html><head><style>"
     html_report += "body { font-family: Arial, sans-serif; margin: 20px; color: #1e293b; }"
     html_report += "h1 { text-align: center; color: #1e3a8a; }"
@@ -86,27 +84,29 @@ def send_report_email():
     html_report += "<h1>🏆 SKPS Youth Festival SUVARNAM2k26</h1>"
     html_report += "<h3 style='text-align: center; color: #64748b;'>Official Consolidated Registration Ledger</h3>"
     html_report += "<table><thead><tr><th>Admission No.</th><th>Student Name</th><th>Registered Items Selection Directory</th></tr></thead><tbody>"
-    
+
     for _, r in current_df.iterrows():
         html_report += "<tr>"
         html_report += "<td style='padding: 10px; border: 1px solid #cbd5e1;'>" + str(r["Admission Number"]) + "</td>"
         html_report += "<td style='padding: 10px; border: 1px solid #cbd5e1;'>" + str(r["Student Name"]) + "</td>"
         html_report += "<td style='padding: 10px; border: 1px solid #cbd5e1;'>" + str(r["Selected Items"]) + "</td>"
         html_report += "</tr>"
-        
+
     html_report += "</tbody></table></body></html>"
-    
+
     sender = st.secrets["email"]["sender_address"]
     password = st.secrets["email"]["sender_password"]
     receiver = st.secrets["email"]["receiver_address"]
-    
+
     msg = MIMEMultipart('alternative')
     msg['Subject'] = "🏆 SUVARNAM2k26 Live Registration Report Table"
     msg['From'] = sender
     msg['To'] = receiver
     msg.attach(MIMEText(html_report, 'html'))
-    
-    server = smtplib.SMTP("://gmail.com", 587)
+
+    # 💡 FIXED: this was "://gmail.com" before, which is not a valid SMTP host
+    # and would have made every email dispatch fail.
+    server = smtplib.SMTP("smtp.gmail.com", 587)
     server.starttls()
     server.login(sender, password)
     server.sendmail(sender, receiver, msg.as_string())
@@ -137,13 +137,13 @@ if not admission_no:
 else:
     student_name = ""
     search_target = strict_clean(admission_no)
-    
+
     # Read database content safely
     if os.path.exists(DATA_FILE) and os.path.getsize(DATA_FILE) > 50:
         existing_records = pd.read_csv(DATA_FILE)
     else:
         existing_records = pd.DataFrame(columns=["Admission Number"])
-    
+
     # Validation parameter mapping loop
     is_duplicate = False
     if not existing_records.empty and len(search_target) > 0:
@@ -156,11 +156,11 @@ else:
     else:
         try:
             raw_df = load_master_data(master_url)
-            
+
             if not raw_df.empty:
                 raw_df['CleanA'] = raw_df['AdmissionNo'].fillna('').apply(strict_clean)
                 match = raw_df[raw_df['CleanA'] == search_target]
-                
+
                 if not match.empty:
                     # Pure text selection mapping
                     student_name = str(match['Studentname'].values[0]).strip()
@@ -170,25 +170,25 @@ else:
         except Exception as e:
             st.error(f"🔌 Critical Link Pipeline Interrupted: {str(e)}")
 
-    # 6. STEP 3: ITEM SELECTION & LOCAL DATABASE STORAGE 
+    # 6. STEP 3: ITEM SELECTION & LOCAL DATABASE STORAGE
     if student_name:
         st.subheader("📋 Step 2: Select Your Registered Items (Max 5)")
-        
+
         selected_items = st.multiselect(
             "Choose your competitive events from the directory:",
             options=all_events,
             max_selections=5,
             help="The system automatically prevents you from selecting more than 5 items."
         )
-        
+
         total_selected = len(selected_items)
         st.info(f"Slots allocated: {total_selected} / 5 items selected.")
-        
+
         if total_selected == 5:
             st.warning("🔒 Maximum registration threshold reached for this profile.")
-            
+
         st.divider()
-        
+
         st.subheader("🚀 Step 3: Complete Submission")
         if st.button("Submit Registration Details", type="primary"):
             if total_selected == 0:
@@ -199,13 +199,13 @@ else:
                         fresh_records = pd.read_csv(DATA_FILE)
                     else:
                         fresh_records = pd.DataFrame(columns=["Admission Number"])
-                        
+
                     is_fresh_duplicate = False
                     if not fresh_records.empty and len(search_target) > 0:
                         fresh_records['CleanCheck'] = fresh_records['Admission Number'].astype(str).fillna('').apply(strict_clean)
                         if search_target in fresh_records['CleanCheck'].values:
                             is_fresh_duplicate = True
-                            
+
                     if is_fresh_duplicate:
                         st.error("Submission blocked. Your registration details were already logged by another portal session.")
                     else:
@@ -216,10 +216,10 @@ else:
                             "Selected Items": items_string
                         }])
                         new_row.to_csv(DATA_FILE, mode='a', header=False, index=False)
-                        
+
                         st.success(f"🎉 Success! {student_name}'s event selections have been safely locked for SUVARNAM2k26.")
                         st.balloons()
-                        st.rerun() 
+                        st.rerun()
                 except Exception as write_err:
                     st.error(f"Failed to record entry locally: {str(write_err)}")
 
@@ -230,35 +230,30 @@ admin_code = st.text_input("Enter Admin Verification Code:", type="password", ke
 
 if admin_code == "1111":
     st.success("🔑 Code Verified. Admin Options Unlocked.")
-    
+
     if os.path.exists(DATA_FILE) and os.path.getsize(DATA_FILE) > 50:
         current_df = pd.read_csv(DATA_FILE)
     else:
         current_df = pd.DataFrame()
-        
+
     st.info(f"📊 Live Server Analytics Counter: {len(current_df)} submissions recorded.")
-    
+
     if st.button("📧 Email Live Master Report Table to Admin Inbox", use_container_width=True):
         if not current_df.empty:
             send_report_email()
         else:
             st.warning("Cannot email an empty table. Awaiting incoming submissions.")
-            
+
     st.write(" ")
     if st.button("🔴 Clear & Reset All Registrations (Delete Trial Entries)", use_container_width=True):
-        # 💡 FIXED PERMANENTLY: Force unique dynamic filename generation to kill memory locks
-        unique_timestamp_id = str(int(time.time()))
-        st.session_state["db_filename"] = f"registrations_live_{unique_timestamp_id}.csv"
-        pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"]).to_csv(st.session_state["db_filename"], index=False)
-        st.success("🧹 System reset complete! Legacy memory files destroyed. New storage canvas open.")
+        # 💡 FIXED: overwrite the SAME shared file with just the header row,
+        # instead of switching to a new session-only filename. Because every
+        # user's session reads this exact path (no session_state involved),
+        # the reset is now visible to everyone immediately, and old rows are
+        # actually gone rather than just hidden from the admin's own session.
+        pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"]).to_csv(DATA_FILE, index=False)
+        st.success("🧹 System reset complete! All registration entries have been cleared for everyone.")
         st.rerun()
 
 elif admin_code != "":
     st.error("❌ Incorrect Admin Verification Code. Access Restricted.")
-
-
-
-
-
-
-
