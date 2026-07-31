@@ -115,32 +115,37 @@ def send_report_email():
     
     msg = MIMEMultipart('alternative')
     msg['Subject'] = "🏆 SUVARNAM2k26 Real-Time Registration Table"
-    msg['From'] = sender
-    msg['To'] = receiver
-    msg.attach(MIMEText(html_report, 'html'))
+    # 5. STEP 2: UNIQUE LOGON & PROFILE VERIFICATION ENGINE (WITH FIXED EMPTY-ROW LOCK BLOCK)
+if not admission_no:
+    st.warning("⚠️ Access Locked: You must enter a valid Admission Number above to select your items.")
+else:
+    student_name = ""
+    search_target = strict_clean(admission_no)
     
-    server = smtplib.SMTP("://gmail.com", 587)
-    server.starttls()
-    server.login(sender, password)
-    server.sendmail(sender, receiver, msg.as_string())
-    server.quit()
-    st.success(f"🚀 Success! The live registrations ledger has been emailed directly to {receiver}")
+    live_df = get_live_registrations()
+    is_duplicate = False
+    
+    # ✅ FIXED CRITICAL GUARD: Completely bypasses the duplicate tracker loop if the file database holds 0 submissions
+    if len(live_df) > 0 and len(search_target) > 0:
+        live_df['CleanCheck'] = live_df['Admission Number'].astype(str).fillna('').apply(strict_clean)
+        if search_target in live_df['CleanCheck'].values:
+            is_duplicate = True
 
-# FAST LOCAL MASTER SHEET LOOKUP (Zero web latency timeouts)
-@st.cache_data(ttl=600)
-def load_master_data():
-    if os.path.exists("master_sheet.xlsx"):
-        df = pd.read_excel("master_sheet.xlsx", engine='openpyxl', header=0)
-        df = df.dropna(how='all').reset_index(drop=True)
-        df.columns = ['AdmissionNo', 'Studentname'] + list(df.columns[2:])
-        df['AdmissionNo'] = df['AdmissionNo'].astype(str).str.split('.').str.get(0).str.strip()
-        return df
-    return pd.DataFrame(columns=['AdmissionNo', 'Studentname'])
-
-master_df = load_master_data()
-
-# 4. STEP 1: READ ADMISSION NUMBER INPUT
-admission_no = st.text_input("🔑 Step 1: Enter Admission Number to begin:", value="", key="main_ad_input").strip()
+    if is_duplicate:
+        st.error("❌ Access Denied: A registration submission entry has already been logged for this Admission Number. Duplicates are blocked.")
+    else:
+        if not master_df.empty:
+            master_df['CleanA'] = master_df['AdmissionNo'].fillna('').apply(strict_clean)
+            match = master_df[master_df['CleanA'] == search_target]
+            
+            if not match.empty:
+                # Extracts raw clean string scalar name completely clear of lists/brackets
+                student_name = str(match['Studentname'].values[0]).strip()
+                st.success(f"🔓 Student Authenticated: **{student_name}** (Admission No: {admission_no})")
+            else:
+                st.error("❌ Invalid Entry: This Admission Number does not match any records inside your Master list.")
+        else:
+            st.error("📁 Master index layout spreadsheet file 'master_sheet.xlsx' not found inside directory workspace.")
 
 # 5. STEP 2: PROFILE VERIFICATION & LIVE DUPLICATE GUARD
 if not admission_no:
