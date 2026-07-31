@@ -202,6 +202,7 @@ else:
             
         st.divider()
         
+               # 🚀 Step 3: Complete Submission
         st.subheader("🚀 Step 3: Complete Submission")
         if st.button("Submit Registration Details", type="primary"):
             if total_selected == 0:
@@ -210,14 +211,8 @@ else:
                 try:
                     fresh_live_df = get_live_registrations()
                     is_fresh_duplicate = False
-                                    try:
-                    fresh_live_df = get_live_registrations()
-                    is_fresh_duplicate = False
                     if len(fresh_live_df) > 0 and len(search_target) > 0:
                         fresh_live_df['CleanCheck'] = fresh_live_df['Admission Number'].astype(str).fillna('').apply(strict_clean)
-                        if search_target in fresh_live_df['CleanCheck'].values:
-                            is_fresh_duplicate = True
-
                         if search_target in fresh_live_df['CleanCheck'].values:
                             is_fresh_duplicate = True
                             
@@ -228,6 +223,15 @@ else:
                         new_row = pd.DataFrame([{
                             "Admission Number": str(admission_no),
                             "Student Name": str(student_name),
+                            "Selected Items": str(items_string)
+                        }])
+                        new_row.to_csv(DATA_FILE, mode='a', header=False, index=False)
+                        
+                        st.session_state["just_registered_target"] = search_target
+                        st.rerun() 
+                except Exception as write_err:
+                    st.error(f"Failed to record entry locally: {str(write_err)}")
+
                             "Selected Items": str(items_string)
                         }])
                         new_row.to_csv(DATA_FILE, mode='a', header=False, index=False)
