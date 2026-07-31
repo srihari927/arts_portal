@@ -210,9 +210,14 @@ else:
                 try:
                     fresh_live_df = get_live_registrations()
                     is_fresh_duplicate = False
+                                    try:
+                    fresh_live_df = get_live_registrations()
+                    is_fresh_duplicate = False
                     if len(fresh_live_df) > 0 and len(search_target) > 0:
                         fresh_live_df['CleanCheck'] = fresh_live_df['Admission Number'].astype(str).fillna('').apply(strict_clean)
                         if search_target in fresh_live_df['CleanCheck'].values:
+                            is_fresh_duplicate = True
+
                         if search_target in fresh_live_df['CleanCheck'].values:
                             is_fresh_duplicate = True
                             
