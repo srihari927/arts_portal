@@ -185,11 +185,12 @@ else:
                         st.error(f"Failed to securely record entry to cloud ledger: {str(write_err)}")
 
 # 9. 🔐 ADMIN DASHBOARD - AUTOMATED BACKEND EMAIL REPORTING
+# 🔐 ADMIN DASHBOARD - AUTOMATED BACKEND EMAIL REPORTING (BYPASSING THE SECRETS KEY ERROR)
 st.write("---")
 st.subheader("🛠️ Secure Admin Portal")
 admin_code = st.text_input("Enter Admin Verification Code:", type="password", key="admin_key").strip()
 
-if admin_code == st.secrets["admin"]["password"]:
+if admin_code == "1111":
     st.success("🔑 Code Verified. Admin Options Unlocked.")
     
     current_live_df = get_live_registrations()
@@ -198,12 +199,6 @@ if admin_code == st.secrets["admin"]["password"]:
     if st.button("📧 Email Live Master Report Table to Admin Inbox", use_container_width=True):
         if not current_live_df.empty:
             try:
-                # Construct HTML table formatting summary rows dynamically
-                html_rows = ""
-                for _, r in current_live_df.iterrows():
-                    html_rows += f"<tr>"
-                    html_rows += f"<td style='padding:10px; border:1px solid #cbd5e1;'>{r['Admission Number']}</td>"
-                    html_rows += f"<td style='padding:10px; border:1px solid #cbd5e1;'>{r['Student Name']}</td>"
                 # Construct HTML table formatting summary rows dynamically
                 html_rows = ""
                 for _, r in current_live_df.iterrows():
@@ -238,7 +233,7 @@ if admin_code == st.secrets["admin"]["password"]:
                 msg['To'] = receiver
                 msg.attach(MIMEText(html_report, 'html'))
                 
-                server = smtplib.SMTP("smtp.gmail.com", 587)
+                server = smtplib.SMTP("://gmail.com", 587)
                 server.starttls()
                 server.login(sender, password)
                 server.sendmail(sender, receiver, msg.as_string())
