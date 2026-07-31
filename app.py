@@ -160,7 +160,6 @@ else:
         if search_target in live_df['CleanCheck'].values:
             is_duplicate = True
 
-    # ✅ FIXED DOUBLE TRANSITION REFLECTIONS: Keeps error box hidden if this specific tab triggered the success flag
     if is_duplicate and st.session_state["just_registered_target"] == search_target:
         st.success(f"🎉 Success! Your event selections have been safely locked for SUVARNAM2k26.")
         st.balloons()
@@ -212,7 +211,7 @@ else:
                             is_fresh_duplicate = True
                             
                     if is_fresh_duplicate:
-                                            if is_fresh_duplicate:
+                    if is_fresh_duplicate:
                         st.error("Submission blocked. Your registration details were already logged by another portal session.")
                     else:
                         items_string = ", ".join(selected_items)
@@ -223,7 +222,6 @@ else:
                         }])
                         new_row.to_csv(DATA_FILE, mode='a', header=False, index=False)
                         
-                        # ✅ FIXED METADATA CACHE: Set session state to current target BEFORE running page refreshes
                         st.session_state["just_registered_target"] = search_target
                         st.rerun() 
                 except Exception as write_err:
@@ -268,5 +266,6 @@ if admin_code == "1111":
 
 elif admin_code != "":
     st.error("❌ Incorrect Admin Verification Code. Access Restricted.")
+
 
 
