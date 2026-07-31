@@ -183,6 +183,14 @@ else:
                     st.error(f"Failed to record entry locally: {str(write_err)}")
 
 # 🔐 ADMIN DASHBOARD - SECURED DATA BACKUP & CLEANING UTILITY
+# 🔐 ADMIN DASHBOARD - SECURED DATA BACKUP & CLEANING UTILITY
+st.write("---")
+st.subheader("🛠️ Secure Admin Portal")
+
+# ✅ FIRST: Declare and read the variable from the input field layout box
+admin_code = st.text_input("Enter Admin Verification Code:", type="password", key="final_admin_pass_input_field").strip()
+
+# ✅ SECOND: Evaluate the password conditional loops downstream
 if admin_code == "9633914904":
     st.success("🔑 Code Verified. Admin Options Unlocked.")
     current_live_df = get_live_registrations()
@@ -208,4 +216,5 @@ if admin_code == "9633914904":
 
 elif admin_code != "":
     st.error("❌ Incorrect Admin Verification Code. Access Restricted.")
+
 
