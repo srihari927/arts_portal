@@ -141,6 +141,10 @@ master_df = load_master_data()
 # STEP 1: READ ADMISSION NUMBER INPUT
 admission_no = st.text_input("🔑 Step 1: Enter Admission Number to begin:", value="", key="main_ad_input").strip()
 
+# Initialize session track layers to prevent double-submit page refreshes from erroring out
+if "just_registered_target" not in st.session_state:
+    st.session_state["just_registered_target"] = ""
+
 # STEP 2: PROFILE VERIFICATION & LIVE DUPLICATE GUARD
 if not admission_no:
     st.warning("⚠️ Access Locked: You must enter a valid Admission Number above to select your items.")
@@ -156,7 +160,11 @@ else:
         if search_target in live_df['CleanCheck'].values:
             is_duplicate = True
 
-    if is_duplicate:
+    # ✅ FIXED DOUBLE TRANSITION REFLECTIONS: Keeps error box hidden if this specific tab triggered the success flag
+    if is_duplicate and st.session_state["just_registered_target"] == search_target:
+        st.success(f"🎉 Success! Your event selections have been safely locked for SUVARNAM2k26.")
+        st.balloons()
+    elif is_duplicate:
         st.error("❌ Access Denied: A registration submission entry has already been logged for this Admission Number. Duplicates are blocked.")
     else:
         if not master_df.empty:
@@ -172,7 +180,7 @@ else:
             st.error("📁 Master index layout spreadsheet file 'master_sheet.xlsx' not found inside repo workspace.")
 
     # STEP 3: ITEM SELECTION & LOCAL DATABASE STORAGE 
-    if student_name:
+    if student_name and st.session_state["just_registered_target"] != search_target:
         st.subheader("📋 Step 2: Select Your Registered Items (Max 5)")
         
         selected_items = st.multiselect(
@@ -196,7 +204,6 @@ else:
                 st.error("Please pick at least 1 item before attempting to submit.")
             else:
                 try:
-                    # Transaction race guard check
                     fresh_live_df = get_live_registrations()
                     is_fresh_duplicate = False
                     if len(fresh_live_df) > 0 and len(search_target) > 0:
@@ -205,6 +212,7 @@ else:
                             is_fresh_duplicate = True
                             
                     if is_fresh_duplicate:
+                                            if is_fresh_duplicate:
                         st.error("Submission blocked. Your registration details were already logged by another portal session.")
                     else:
                         items_string = ", ".join(selected_items)
@@ -213,11 +221,10 @@ else:
                             "Student Name": str(student_name),
                             "Selected Items": str(items_string)
                         }])
-                        # Direct stream appends to local canvas disk destination file
                         new_row.to_csv(DATA_FILE, mode='a', header=False, index=False)
                         
-                        st.success(f"🎉 Success! {student_name}'s event selections have been safely locked for SUVARNAM2k26.")
-                        st.balloons()
+                        # ✅ FIXED METADATA CACHE: Set session state to current target BEFORE running page refreshes
+                        st.session_state["just_registered_target"] = search_target
                         st.rerun() 
                 except Exception as write_err:
                     st.error(f"Failed to record entry locally: {str(write_err)}")
@@ -255,9 +262,11 @@ if admin_code == "1111":
     st.write(" ")
     if st.button("🔴 Clear & Reset All Registrations (Delete Trial Entries)", use_container_width=True):
         pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"]).to_csv(DATA_FILE, index=False)
+        st.session_state["just_registered_target"] = ""
         st.success("🧹 Local ledger database wiped clean! App restarted safely.")
         st.rerun()
 
 elif admin_code != "":
     st.error("❌ Incorrect Admin Verification Code. Access Restricted.")
+
 
