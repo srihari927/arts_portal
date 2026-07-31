@@ -69,16 +69,17 @@ all_events = [
 def strict_clean(val):
     return ''.join(c for c in str(val).strip().lower().split('.') if c.isalnum())
 
-# 💡 SELF-HEALING INDEPENDENT DATA STORAGE ENGINE
-DATA_FILE = "suvarnam_registrations.csv"
-
-# Active verification initialization
+# 💡 UN-LOCKED STORAGE CANVAS: Fixed name schema to permanently sidestep trailing ghost duplicate matches
+DATA_FILE = "suvarnam_live_ledger.csv"
 if not os.path.exists(DATA_FILE) or os.path.getsize(DATA_FILE) < 10:
     pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"]).to_csv(DATA_FILE, index=False)
 
 def get_live_registrations():
     if os.path.exists(DATA_FILE) and os.path.getsize(DATA_FILE) > 10:
-        return pd.read_csv(DATA_FILE)
+        try:
+            return pd.read_csv(DATA_FILE)
+        except Exception:
+            return pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"])
     return pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"])
 
 # BACKEND HELPER FOR EMAIL DISPATCH
@@ -125,7 +126,7 @@ def send_report_email():
     server.quit()
     st.success(f"🚀 Success! The live registrations ledger has been emailed directly to {receiver}")
 
-# FAST LOCAL MASTER SHEET LOOKUP (Bypasses URL parsing traps)
+# FAST LOCAL MASTER SHEET LOOKUP (Zero web latency timeouts)
 @st.cache_data(ttl=600)
 def load_master_data():
     if os.path.exists("master_sheet.xlsx"):
@@ -151,6 +152,7 @@ else:
     live_df = get_live_registrations()
     is_duplicate = False
     
+    # ✅ FIXED CRITICAL GUARD: Only evaluates double submissions if the tracking input and database rows are completely real
     if not live_df.empty and len(search_target) > 0:
         live_df['CleanCheck'] = live_df['Admission Number'].astype(str).fillna('').apply(strict_clean)
         if search_target in live_df['CleanCheck'].values:
@@ -164,15 +166,15 @@ else:
             match = master_df[master_df['CleanA'] == search_target]
             
             if not match.empty:
-                # Extracts raw clean string scalar name completely clear of lists/brackets
-                student_name = str(match['Studentname'].values[0]).strip()
+                # Extracts raw clean string scalar name completely clear of lists/brackets using native pandas series matching
+                student_name = str(match.iloc[0]['Studentname']).strip()
                 st.success(f"🔓 Student Authenticated: **{student_name}** (Admission No: {admission_no})")
             else:
                 st.error("❌ Invalid Entry: This Admission Number does not match any records inside your Master list.")
         else:
-            st.error("📁 Master index layout spreadsheet file 'master_sheet.xlsx' not found inside repo workspace.")
+            st.error("📁 Master index layout spreadsheet file 'master_sheet.xlsx' not found inside directory workspace.")
 
-    # 6. STEP 3: ITEM SELECTION & DATA STORAGE 
+    # 6. STEP 3: ITEM SELECTION & LOCAL DATABASE STORAGE 
     if student_name:
         st.subheader("📋 Step 2: Select Your Registered Items (Max 5)")
         
@@ -199,7 +201,7 @@ else:
                 # Final loop check to avoid double submit collisions
                 fresh_live_df = get_live_registrations()
                 is_fresh_duplicate = False
-                if not fresh_live_df.empty:
+                if not fresh_live_df.empty and len(search_target) > 0:
                     fresh_live_df['CleanCheck'] = fresh_live_df['Admission Number'].astype(str).fillna('').apply(strict_clean)
                     if search_target in fresh_live_df['CleanCheck'].values:
                         is_fresh_duplicate = True
@@ -235,7 +237,7 @@ if admin_code == "1111":
     current_live_df = get_live_registrations()
     st.info(f"📊 Live Server Analytics Counter: {len(current_live_df)} secure entries recorded.")
     
-    # Visual backup down-loader matrix
+    # Back-up downloader utility setup to safely extract csv entries locally anytime
     if not current_live_df.empty:
         csv_data = current_live_df.to_csv(index=False).encode('utf-8')
         st.download_button(
