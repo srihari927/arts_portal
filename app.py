@@ -182,9 +182,10 @@ else:
                     st.error(f"Failed to record entry locally: {str(write_err)}")
 
 # 🔐 ADMIN DASHBOARD - SECURED DATA BACKUP & CLEANING UTILITY
+# 🔐 ADMIN DASHBOARD - SECURED DATA BACKUP & CLEANING UTILITY
 st.write("---")
 st.subheader("🛠️ Secure Admin Portal")
-admin_code = st.text_input("Enter Admin Verification Code:", type="password", key="admin_pass_input").strip()
+admin_code = st.text_input("Enter Admin Verification Code:", type="password", key="final_admin_pass_input_field").strip()
 
 if admin_code == "9633914904":
     st.success("🔑 Code Verified. Admin Options Unlocked.")
@@ -198,15 +199,12 @@ if admin_code == "9633914904":
             data=csv_data,
             file_name="SUVARNAM2k26_Final_Registrations.csv",
             mime="text/csv",
-            key="admin_download_btn",
+            key="final_admin_download_action_button",
             use_container_width=True
         )
             
     st.write(" ")
-    if st.button("🔴 Clear & Reset All Registrations (Delete Trial Entries)", use_container_width=True, key="admin_wipe_reset_btn"):
-        pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"]).to_csv(DATA_FILE, index=False)
-        st.session_state["just_registered_target"] = ""
-    if st.button("🔴 Clear & Reset All Registrations (Delete Trial Entries)", use_container_width=True, key="admin_wipe_reset_btn"):
+    if st.button("🔴 Clear & Reset All Registrations (Delete Trial Entries)", use_container_width=True, key="absolute_final_unique_wipe_button_key"):
         pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"]).to_csv(DATA_FILE, index=False)
         st.session_state["just_registered_target"] = ""
         st.success("🧹 Local ledger database wiped clean! App restarted safely.")
@@ -214,4 +212,5 @@ if admin_code == "9633914904":
 
 elif admin_code != "":
     st.error("❌ Incorrect Admin Verification Code. Access Restricted.")
+
 
