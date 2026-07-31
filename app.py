@@ -69,7 +69,7 @@ all_events = [
 def strict_clean(val):
     return ''.join(c for c in str(val).strip().lower().split('.') if c.isalnum())
 
-# Initialize local database file paths cleanly
+# Initialize database storage destination filenames
 DATA_FILE = "suvarnam_live_ledger.csv"
 if not os.path.exists(DATA_FILE) or os.path.getsize(DATA_FILE) < 10:
     pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"]).to_csv(DATA_FILE, index=False)
@@ -82,10 +82,9 @@ def get_live_registrations():
             return pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"])
     return pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"])
 
-# FIXED INDEPENDENT BACKEND HELPER FOR EMAIL DISPATCH
+# BACKEND HELPER FOR EMAIL DISPATCH
 def send_report_email():
     current_df = get_live_registrations()
-    
     html_rows = ""
     for _, r in current_df.iterrows():
         html_rows += f"<tr>"
@@ -119,15 +118,14 @@ def send_report_email():
     msg['To'] = receiver
     msg.attach(MIMEText(html_report, 'html'))
     
-    # FIXED: Restored clean live SMTP destination link coordinates
-    server = smtplib.SMTP("smtp.gmail.com", 587)
+    server = smtplib.SMTP("://gmail.com", 587)
     server.starttls()
     server.login(sender, password)
     server.sendmail(sender, receiver, msg.as_string())
     server.quit()
     st.success(f"🚀 Success! The live registrations ledger has been emailed directly to {receiver}")
 
-# FAST LOCAL MASTER SHEET LOOKUP 
+# FAST LOCAL MASTER SHEET LOOKUP
 @st.cache_data(ttl=600)
 def load_master_data():
     if os.path.exists("master_sheet.xlsx"):
@@ -140,10 +138,10 @@ def load_master_data():
 
 master_df = load_master_data()
 
-# ✅ RE-ORDERED CRITICAL ROOT STEP: Read admission input before triggering step 2 loop calculations
+# STEP 1: READ ADMISSION NUMBER INPUT
 admission_no = st.text_input("🔑 Step 1: Enter Admission Number to begin:", value="", key="main_ad_input").strip()
 
-# 5. STEP 2: UNIQUE LOGON & PROFILE VERIFICATION ENGINE
+# STEP 2: PROFILE VERIFICATION & LIVE DUPLICATE GUARD
 if not admission_no:
     st.warning("⚠️ Access Locked: You must enter a valid Admission Number above to select your items.")
 else:
@@ -153,7 +151,6 @@ else:
     live_df = get_live_registrations()
     is_duplicate = False
     
-    # FIXED ROW GUARD: Keeps validation block open on blank canvases
     if len(live_df) > 0 and len(search_target) > 0:
         live_df['CleanCheck'] = live_df['Admission Number'].astype(str).fillna('').apply(strict_clean)
         if search_target in live_df['CleanCheck'].values:
@@ -167,7 +164,6 @@ else:
             match = master_df[master_df['CleanA'] == search_target]
             
             if not match.empty:
-                # Extracts cleanly clear of annotation leaks
                 student_name = str(match['Studentname'].values[0]).strip()
                 st.success(f"🔓 Student Authenticated: **{student_name}** (Admission No: {admission_no})")
             else:
@@ -175,7 +171,7 @@ else:
         else:
             st.error("📁 Master index layout spreadsheet file 'master_sheet.xlsx' not found inside repo workspace.")
 
-    # 6. STEP 3: ITEM SELECTION & LOCAL DATABASE STORAGE 
+    # STEP 3: ITEM SELECTION & LOCAL DATABASE STORAGE 
     if student_name:
         st.subheader("📋 Step 2: Select Your Registered Items (Max 5)")
         
@@ -200,6 +196,7 @@ else:
                 st.error("Please pick at least 1 item before attempting to submit.")
             else:
                 try:
+                    # Transaction race guard check
                     fresh_live_df = get_live_registrations()
                     is_fresh_duplicate = False
                     if len(fresh_live_df) > 0 and len(search_target) > 0:
@@ -207,14 +204,16 @@ else:
                         if search_target in fresh_live_df['CleanCheck'].values:
                             is_fresh_duplicate = True
                             
-                                            # Build the fresh data log dictionary securely
+                    if is_fresh_duplicate:
+                        st.error("Submission blocked. Your registration details were already logged by another portal session.")
+                    else:
+                        items_string = ", ".join(selected_items)
                         new_row = pd.DataFrame([{
                             "Admission Number": str(admission_no),
                             "Student Name": str(student_name),
                             "Selected Items": str(items_string)
                         }])
-                        
-                        # Append the verified row record to the tracking file database
+                        # Direct stream appends to local canvas disk destination file
                         new_row.to_csv(DATA_FILE, mode='a', header=False, index=False)
                         
                         st.success(f"🎉 Success! {student_name}'s event selections have been safely locked for SUVARNAM2k26.")
@@ -230,11 +229,9 @@ admin_code = st.text_input("Enter Admin Verification Code:", type="password", ke
 
 if admin_code == "1111":
     st.success("🔑 Code Verified. Admin Options Unlocked.")
-    
     current_live_df = get_live_registrations()
     st.info(f"📊 Live Server Analytics Counter: {len(current_live_df)} secure entries recorded.")
     
-    # Secure backup download matrix loop setup
     if not current_live_df.empty:
         csv_data = current_live_df.to_csv(index=False).encode('utf-8')
         st.download_button(
@@ -263,3 +260,4 @@ if admin_code == "1111":
 
 elif admin_code != "":
     st.error("❌ Incorrect Admin Verification Code. Access Restricted.")
+
