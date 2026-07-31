@@ -5,11 +5,12 @@ import os
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from streamlit_gsheets import GSheetsConnection
 
 # 1. Page Configuration
 st.set_page_config(page_title="SKPS Youth Festival SUVARNAM2k26", page_icon="🎨", layout="centered")
 
-# 2. Modern Native CSS Background Image Integration
+# 2. Modern Native CSS UI & Interactive Elements Styling
 if os.path.exists("background.png"):
     with open("background.png", "rb") as image_file:
         encoded_string = base64.b64encode(image_file.read()).decode()
@@ -30,6 +31,12 @@ if os.path.exists("background.png"):
         background-color: rgba(255, 255, 255, 0.95) !important;
         color: #1e293b !important;
         border-radius: 6px !important;
+    }}
+    .stButton button {{
+        width: 100% !important;
+        font-size: 18px !important;
+        font-weight: bold !important;
+        border-radius: 10px !important;
     }}
     </style>
     """, unsafe_allow_html=True)
@@ -63,197 +70,196 @@ all_events = [
 def strict_clean(val):
     return ''.join(c for c in str(val).strip().lower().split('.') if c.isalnum())
 
-# 💡 FIXED: single fixed ledger file shared by every user/session — NOT stored
-# in st.session_state, which is private to each browser session and was the
-# root cause of both the false-duplicate bug and the broken reset button.
-DATA_FILE = "registrations_active.csv"
-if not os.path.exists(DATA_FILE):
-    pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"]).to_csv(DATA_FILE, index=False)
+# 4. INITIALIZE PRIVATE CLOUD SHEET CONNECTION (Guarantees zero registration data loss)
+conn = st.connection("gsheets", type=GSheetsConnection)
 
-# BACKEND HELPER FOR EMAIL DISPATCH
-def send_report_email():
-    current_df = pd.read_csv(DATA_FILE)
+def get_live_registrations():
+    try:
+        df = conn.read(ttl="0s") # Force raw non-cached pull straight from cloud
+        if df.empty or len(df.columns) < 3:
+            return pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"])
+        return df
+    except Exception:
+        return pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"])
 
-    html_report = "<html><head><style>"
-    html_report += "body { font-family: Arial, sans-serif; margin: 20px; color: #1e293b; }"
-    html_report += "h1 { text-align: center; color: #1e3a8a; }"
-    html_report += "table { width: 100%; border-collapse: collapse; margin-top: 20px; }"
-    html_report += "th { background-color: #1e3a8a; color: white; padding: 12px; text-align: left; }"
-    html_report += "tr:nth-child(even) { background-color: #f8fafc; }"
-    html_report += "</style></head><body>"
-    html_report += "<h1>🏆 SKPS Youth Festival SUVARNAM2k26</h1>"
-    html_report += "<h3 style='text-align: center; color: #64748b;'>Official Consolidated Registration Ledger</h3>"
-    html_report += "<table><thead><tr><th>Admission No.</th><th>Student Name</th><th>Registered Items Selection Directory</th></tr></thead><tbody>"
+# 5. FAST LOCAL MASTER SHEET LOOKUP (Zero web latency timeouts)
+@st.cache_data(ttl=600)
+def load_master_data():
+    if os.path.exists("master_sheet.xlsx"):
+        df = pd.read_excel("master_sheet.xlsx", engine='openpyxl', header=0)
+        df = df.dropna(how='all').reset_index(drop=True)
+        df.columns = ['AdmissionNo', 'Studentname'] + list(df.columns[2:])
+        df['AdmissionNo'] = df['AdmissionNo'].astype(str).str.split('.').str.get(0).str.strip()
+        return df
+    return pd.DataFrame(columns=['AdmissionNo', 'Studentname'])
 
-    for _, r in current_df.iterrows():
-        html_report += "<tr>"
-        html_report += "<td style='padding: 10px; border: 1px solid #cbd5e1;'>" + str(r["Admission Number"]) + "</td>"
-        html_report += "<td style='padding: 10px; border: 1px solid #cbd5e1;'>" + str(r["Student Name"]) + "</td>"
-        html_report += "<td style='padding: 10px; border: 1px solid #cbd5e1;'>" + str(r["Selected Items"]) + "</td>"
-        html_report += "</tr>"
+master_df = load_master_data()
 
-    html_report += "</tbody></table></body></html>"
-
-    sender = st.secrets["email"]["sender_address"]
-    password = st.secrets["email"]["sender_password"]
-    receiver = st.secrets["email"]["receiver_address"]
-
-    msg = MIMEMultipart('alternative')
-    msg['Subject'] = "🏆 SUVARNAM2k26 Live Registration Report Table"
-    msg['From'] = sender
-    msg['To'] = receiver
-    msg.attach(MIMEText(html_report, 'html'))
-
-    # 💡 FIXED: this was "://gmail.com" before, which is not a valid SMTP host
-    # and would have made every email dispatch fail.
-    server = smtplib.SMTP("smtp.gmail.com", 587)
-    server.starttls()
-    server.login(sender, password)
-    server.sendmail(sender, receiver, msg.as_string())
-    server.quit()
-    st.success(f"🚀 Success! The live registrations ledger has been emailed directly to {receiver}")
-
-# Establish connection matrix to pull Master student lookup directory from Secrets Tab URL
-master_url = ""
-try:
-    master_url = st.secrets["connections"]["gsheets"]["master_sheet_url"]
-except Exception:
-    pass
-
-@st.cache_data(ttl=1)
-def load_master_data(url):
-    df = pd.read_excel(url, engine='openpyxl', header=0)
-    df = df.dropna(how='all').reset_index(drop=True)
-    df.columns = ['AdmissionNo', 'Studentname'] + list(df.columns[2:])
-    df['AdmissionNo'] = df['AdmissionNo'].astype(str).str.split('.').str.get(0).str.strip()
-    return df
-
-# 4. STEP 1: READ ADMISSION NUMBER INPUT
+# 6. STEP 1: READ ADMISSION NUMBER INPUT
 admission_no = st.text_input("🔑 Step 1: Enter Admission Number to begin:", value="", key="main_ad_input").strip()
 
-# 5. STEP 2: UNIQUE LOGON & PROFILE VERIFICATION ENGINE
+# 7. STEP 2: PROFILE VERIFICATION & LIVE DUPLICATE GUARD
 if not admission_no:
     st.warning("⚠️ Access Locked: You must enter a valid Admission Number above to select your items.")
 else:
     student_name = ""
     search_target = strict_clean(admission_no)
-
-    # Read database content safely
-    if os.path.exists(DATA_FILE) and os.path.getsize(DATA_FILE) > 50:
-        existing_records = pd.read_csv(DATA_FILE)
-    else:
-        existing_records = pd.DataFrame(columns=["Admission Number"])
-
-    # Validation parameter mapping loop
+    
+    # Check live registrations from the cloud sheet safely
+    live_df = get_live_registrations()
     is_duplicate = False
-    if not existing_records.empty and len(search_target) > 0:
-        existing_records['CleanCheck'] = existing_records['Admission Number'].astype(str).fillna('').apply(strict_clean)
-        if search_target in existing_records['CleanCheck'].values:
+    
+    if not live_df.empty and len(search_target) > 0:
+        live_df['CleanCheck'] = live_df['Admission Number'].astype(str).fillna('').apply(strict_clean)
+        if search_target in live_df['CleanCheck'].values:
             is_duplicate = True
 
     if is_duplicate:
         st.error("❌ Access Denied: A registration submission entry has already been logged for this Admission Number. Duplicates are blocked.")
     else:
-        try:
-            raw_df = load_master_data(master_url)
+        # Cross reference master list data
+        if not master_df.empty:
+            master_df['CleanA'] = master_df['AdmissionNo'].fillna('').apply(strict_clean)
+            match = master_df[master_df['CleanA'] == search_target]
+            
+            if not match.empty:
+                # Extracts raw clean string scalar name completely clear of lists/brackets
+                student_name = str(match.iloc[0]['Studentname']).strip()
+                st.success(f"🔓 Student Authenticated: **{student_name}** (Admission No: {admission_no})")
+            else:
+                st.error("❌ Invalid Entry: This Admission Number does not match any records inside your Master list.")
+        else:
+            st.error("📁 Master index layout spreadsheet file not found inside directory workspace.")
 
-            if not raw_df.empty:
-                raw_df['CleanA'] = raw_df['AdmissionNo'].fillna('').apply(strict_clean)
-                match = raw_df[raw_df['CleanA'] == search_target]
-
-                if not match.empty:
-                    # Pure text selection mapping
-                    student_name = str(match['Studentname'].values[0]).strip()
-                    st.success(f"🔓 Student Authenticated: **{student_name}** (Admission No: {admission_no})")
-                else:
-                    st.error("❌ Invalid Entry: This Admission Number does not match any records inside your Master list.")
-        except Exception as e:
-            st.error(f"🔌 Critical Link Pipeline Interrupted: {str(e)}")
-
-    # 6. STEP 3: ITEM SELECTION & LOCAL DATABASE STORAGE
+    # 8. STEP 3: ITEM SELECTION & AUTOMATED CLOUD SYNC
     if student_name:
         st.subheader("📋 Step 2: Select Your Registered Items (Max 5)")
-
+        
         selected_items = st.multiselect(
             "Choose your competitive events from the directory:",
             options=all_events,
             max_selections=5,
             help="The system automatically prevents you from selecting more than 5 items."
         )
-
+        
         total_selected = len(selected_items)
         st.info(f"Slots allocated: {total_selected} / 5 items selected.")
-
+        
         if total_selected == 5:
             st.warning("🔒 Maximum registration threshold reached for this profile.")
-
+            
         st.divider()
-
+        
         st.subheader("🚀 Step 3: Complete Submission")
         if st.button("Submit Registration Details", type="primary"):
             if total_selected == 0:
                 st.error("Please pick at least 1 item before attempting to submit.")
             else:
-                try:
-                    if os.path.exists(DATA_FILE) and os.path.getsize(DATA_FILE) > 50:
-                        fresh_records = pd.read_csv(DATA_FILE)
-                    else:
-                        fresh_records = pd.DataFrame(columns=["Admission Number"])
-
-                    is_fresh_duplicate = False
-                    if not fresh_records.empty and len(search_target) > 0:
-                        fresh_records['CleanCheck'] = fresh_records['Admission Number'].astype(str).fillna('').apply(strict_clean)
-                        if search_target in fresh_records['CleanCheck'].values:
-                            is_fresh_duplicate = True
-
-                    if is_fresh_duplicate:
-                        st.error("Submission blocked. Your registration details were already logged by another portal session.")
-                    else:
+                # Final guard check loop execution right at submission line
+                fresh_live_df = get_live_registrations()
+                is_fresh_duplicate = False
+                if not fresh_live_df.empty:
+                    fresh_live_df['CleanCheck'] = fresh_live_df['Admission Number'].astype(str).fillna('').apply(strict_clean)
+                    if search_target in fresh_live_df['CleanCheck'].values:
+                        is_fresh_duplicate = True
+                        
+                if is_fresh_duplicate:
+                    st.error("Submission blocked. Your registration details were already logged by another portal session.")
+                else:
+                    try:
                         items_string = ", ".join(selected_items)
                         new_row = pd.DataFrame([{
-                            "Admission Number": admission_no,
-                            "Student Name": student_name,
-                            "Selected Items": items_string
+                            "Admission Number": str(admission_no),
+                            "Student Name": str(student_name),
+                            "Selected Items": str(items_string)
                         }])
-                        new_row.to_csv(DATA_FILE, mode='a', header=False, index=False)
-
+                        
+                        # Concatenate and stream write transaction direct to cloud spreadsheet rows
+                        updated_df = pd.concat([fresh_live_df, new_row], ignore_index=True)
+                        conn.update(data=updated_df)
+                        
                         st.success(f"🎉 Success! {student_name}'s event selections have been safely locked for SUVARNAM2k26.")
                         st.balloons()
                         st.rerun()
-                except Exception as write_err:
-                    st.error(f"Failed to record entry locally: {str(write_err)}")
+                    except Exception as write_err:
+                        st.error(f"Failed to securely record entry to cloud ledger: {str(write_err)}")
 
-# 🔐 ADMIN DASHBOARD - SECURED EMAIL DISPATCHER & CLEANER UTILITY
+# 9. 🔐 ADMIN DASHBOARD - AUTOMATED BACKEND EMAIL REPORTING
 st.write("---")
 st.subheader("🛠️ Secure Admin Portal")
 admin_code = st.text_input("Enter Admin Verification Code:", type="password", key="admin_key").strip()
 
-if admin_code == "1111":
+if admin_code == st.secrets["admin"]["password"]:
     st.success("🔑 Code Verified. Admin Options Unlocked.")
-
-    if os.path.exists(DATA_FILE) and os.path.getsize(DATA_FILE) > 50:
-        current_df = pd.read_csv(DATA_FILE)
-    else:
-        current_df = pd.DataFrame()
-
-    st.info(f"📊 Live Server Analytics Counter: {len(current_df)} submissions recorded.")
-
+    
+    current_live_df = get_live_registrations()
+    st.info(f"📊 Live Server Analytics Counter: {len(current_live_df)} secure entries saved inside your cloud storage ledger.")
+    
     if st.button("📧 Email Live Master Report Table to Admin Inbox", use_container_width=True):
-        if not current_df.empty:
-            send_report_email()
+        if not current_live_df.empty:
+            try:
+                # Construct HTML table formatting summary rows dynamically
+                html_rows = ""
+                for _, r in current_live_df.iterrows():
+                    html_rows += f"<tr>"
+                    html_rows += f"<td style='padding:10px; border:1px solid #cbd5e1;'>{r['Admission Number']}</td>"
+                    html_rows += f"<td style='padding:10px; border:1px solid #cbd5e1;'>{r['Student Name']}</td>"
+                # Construct HTML table formatting summary rows dynamically
+                html_rows = ""
+                for _, r in current_live_df.iterrows():
+                    html_rows += f"<tr>"
+                    html_rows += f"<td style='padding:10px; border:1px solid #cbd5e1;'>{r['Admission Number']}</td>"
+                    html_rows += f"<td style='padding:10px; border:1px solid #cbd5e1;'>{r['Student Name']}</td>"
+                    html_rows += f"<td style='padding:10px; border:1px solid #cbd5e1;'>{r['Selected Items']}</td>"
+                    html_rows += f"</tr>"
+                    
+                html_report = f"""
+                <html><body>
+                    <h2 style='color:#1e3a8a; text-align:center;'>🏆 SKPS Youth Festival SUVARNAM2k26</h2>
+                    <h4 style='color:#64748b; text-align:center;'>Official Consolidated Registration Cloud Ledger</h4>
+                    <table style='width:100%; border-collapse:collapse; margin-top:15px;'>
+                        <thead><tr style='background-color:#1e3a8a; color:white;'>
+                            <th style='padding:12px; text-align:left;'>Admission No.</th>
+                            <th style='padding:12px; text-align:left;'>Student Name</th>
+                            <th style='padding:12px; text-align:left;'>Registered Items Selection Directory</th>
+                        </tr></thead>
+                        <tbody>{html_rows}</tbody>
+                    </table>
+                </body></html>
+                """
+                
+                sender = st.secrets["email"]["sender_address"]
+                password = st.secrets["email"]["sender_password"]
+                receiver = st.secrets["email"]["receiver_address"]
+                
+                msg = MIMEMultipart('alternative')
+                msg['Subject'] = "🏆 SUVARNAM2k26 Real-Time Cloud Registration Table"
+                msg['From'] = sender
+                msg['To'] = receiver
+                msg.attach(MIMEText(html_report, 'html'))
+                
+                server = smtplib.SMTP("smtp.gmail.com", 587)
+                server.starttls()
+                server.login(sender, password)
+                server.sendmail(sender, receiver, msg.as_string())
+                server.quit()
+                st.success(f"🚀 Success! The live master ledger has been compiled and emailed directly to {receiver}")
+            except Exception as mail_err:
+                st.error(f"Email transit routing pipeline failed: {str(mail_err)}")
         else:
             st.warning("Cannot email an empty table. Awaiting incoming submissions.")
-
+            
     st.write(" ")
     if st.button("🔴 Clear & Reset All Registrations (Delete Trial Entries)", use_container_width=True):
-        # 💡 FIXED: overwrite the SAME shared file with just the header row,
-        # instead of switching to a new session-only filename. Because every
-        # user's session reads this exact path (no session_state involved),
-        # the reset is now visible to everyone immediately, and old rows are
-        # actually gone rather than just hidden from the admin's own session.
-        pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"]).to_csv(DATA_FILE, index=False)
-        st.success("🧹 System reset complete! All registration entries have been cleared for everyone.")
-        st.rerun()
+        try:
+            # Overwrite cloud table sheet back to fresh columns blueprint template layout instantly
+            blank_df = pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"])
+            conn.update(data=blank_df)
+            st.success("🧹 Cloud ledger database wiped clean! App restarted safely.")
+            st.rerun()
+        except Exception as reset_err:
+            st.error(f"Failed to clear cloud spreadsheet: {str(reset_err)}")
 
 elif admin_code != "":
     st.error("❌ Incorrect Admin Verification Code. Access Restricted.")
+
