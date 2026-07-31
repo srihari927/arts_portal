@@ -207,11 +207,7 @@ else:
                     is_fresh_duplicate = False
                     if len(fresh_live_df) > 0 and len(search_target) > 0:
                         fresh_live_df['CleanCheck'] = fresh_live_df['Admission Number'].astype(str).fillna('').apply(strict_clean)
-                        if search_target in fresh_live_df['CleanCheck'].values:
-                            is_fresh_duplicate = True
-                            
-                    if is_fresh_duplicate:
-                    if is_fresh_duplicate:
+                                            if is_fresh_duplicate:
                         st.error("Submission blocked. Your registration details were already logged by another portal session.")
                     else:
                         items_string = ", ".join(selected_items)
@@ -266,6 +262,5 @@ if admin_code == "1111":
 
 elif admin_code != "":
     st.error("❌ Incorrect Admin Verification Code. Access Restricted.")
-
 
 
