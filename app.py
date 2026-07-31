@@ -181,35 +181,12 @@ else:
                     st.error(f"Failed to record entry locally: {str(write_err)}")
 
 # 🔐 ADMIN DASHBOARD - SECURED DATA BACKUP & CLEANING UTILITY
-st.write("---")
-st.subheader("🛠️ Secure Admin Portal")
-# ✅ UPDATED: Password checking parameter configured to match your sequence key directly
-admin_code = st.text_input("Enter Admin Verification Code:", type="password", key="admin_key").strip()
-
-if admin_code == "9633914904":
-    st.success("🔑 Code Verified. Admin Options Unlocked.")
-    current_live_df = get_live_registrations()
-    st.info(f"📊 Live Server Analytics Counter: {len(current_live_df)} secure entries recorded.")
-    
-    if not current_live_df.empty:
-        csv_data = current_live_df.to_csv(index=False).encode('utf-8')
-        st.download_button(
-            label="📥 Download Consolidated Registrations Ledger (CSV File)",
-            data=csv_data,
-            file_name="SUVARNAM2k26_Final_Registrations.csv",
-            mime="text/csv",
-            use_container_width=True
-        )
-            
     st.write(" ")
-    if st.button("🔴 Clear & Reset All Registrations (Delete Trial Entries)", use_container_width=True):
+    if st.button("🔴 Clear & Reset All Registrations (Delete Trial Entries)", use_container_width=True, key="admin_reset_btn"):
         pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"]).to_csv(DATA_FILE, index=False)
         st.session_state["just_registered_target"] = ""
-        if st.button("🔴 Clear & Reset All Registrations (Delete Trial Entries)", use_container_width=True):
-            pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"]).to_csv(DATA_FILE, index=False)
-            st.session_state["just_registered_target"] = ""
-            st.success("🧹 Local ledger database wiped clean! App restarted safely.")
-            st.rerun()
+        st.success("🧹 Local ledger database wiped clean! App restarted safely.")
+        st.rerun()
 
 elif admin_code != "":
     st.error("❌ Incorrect Admin Verification Code. Access Restricted.")
