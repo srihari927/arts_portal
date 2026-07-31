@@ -125,7 +125,7 @@ else:
             match = master_df[master_df['CleanA'] == search_target]
             
             if not match.empty:
-                student_name = str(match['Studentname'].values[0]).strip()
+                student_name = str(match['Studentname'].values).strip()
                 st.success(f"🔓 Student Authenticated: **{student_name}** (Admission No: {admission_no})")
             else:
                 st.error("❌ Invalid Entry: This Admission Number does not match any records inside your Master list.")
@@ -140,6 +140,7 @@ else:
             "Choose your competitive events from the directory:",
             options=all_events,
             max_selections=5,
+            key="student_multiselect_box",
             help="The system automatically prevents you from selecting more than 5 items."
         )
         
@@ -152,7 +153,7 @@ else:
         st.divider()
         
         st.subheader("🚀 Step 3: Complete Submission")
-        if st.button("Submit Registration Details", type="primary"):
+        if st.button("Submit Registration Details", type="primary", key="student_submit_btn"):
             if total_selected == 0:
                 st.error("Please pick at least 1 item before attempting to submit.")
             else:
@@ -181,8 +182,31 @@ else:
                     st.error(f"Failed to record entry locally: {str(write_err)}")
 
 # 🔐 ADMIN DASHBOARD - SECURED DATA BACKUP & CLEANING UTILITY
+st.write("---")
+st.subheader("🛠️ Secure Admin Portal")
+admin_code = st.text_input("Enter Admin Verification Code:", type="password", key="admin_pass_input").strip()
+
+if admin_code == "9633914904":
+    st.success("🔑 Code Verified. Admin Options Unlocked.")
+    current_live_df = get_live_registrations()
+    st.info(f"📊 Live Server Analytics Counter: {len(current_live_df)} secure entries recorded.")
+    
+    if not current_live_df.empty:
+        csv_data = current_live_df.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="📥 Download Consolidated Registrations Ledger (CSV File)",
+            data=csv_data,
+            file_name="SUVARNAM2k26_Final_Registrations.csv",
+            mime="text/csv",
+            key="admin_download_btn",
+            use_container_width=True
+        )
+            
     st.write(" ")
-    if st.button("🔴 Clear & Reset All Registrations (Delete Trial Entries)", use_container_width=True, key="admin_reset_btn"):
+    if st.button("🔴 Clear & Reset All Registrations (Delete Trial Entries)", use_container_width=True, key="admin_wipe_reset_btn"):
+        pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"]).to_csv(DATA_FILE, index=False)
+        st.session_state["just_registered_target"] = ""
+    if st.button("🔴 Clear & Reset All Registrations (Delete Trial Entries)", use_container_width=True, key="admin_wipe_reset_btn"):
         pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"]).to_csv(DATA_FILE, index=False)
         st.session_state["just_registered_target"] = ""
         st.success("🧹 Local ledger database wiped clean! App restarted safely.")
@@ -190,3 +214,4 @@ else:
 
 elif admin_code != "":
     st.error("❌ Incorrect Admin Verification Code. Access Restricted.")
+
