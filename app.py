@@ -2,9 +2,6 @@ import streamlit as st
 import pandas as pd
 import base64
 import os
-import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 
 # 1. Page Configuration
 st.set_page_config(page_title="SKPS Youth Festival SUVARNAM2k26", page_icon="🎨", layout="centered")
@@ -72,61 +69,15 @@ def strict_clean(val):
 # Initialize database storage destination filenames
 DATA_FILE = "suvarnam_live_ledger.csv"
 if not os.path.exists(DATA_FILE) or os.path.getsize(DATA_FILE) < 10:
-   # 📧 SECURE BACKEND HELPER FOR EMAIL DISPATCH (WITH INTEGRATED DNS RE-ROUTING FALLBACK)
-def send_report_email():
-    current_df = get_live_registrations()
-    html_rows = ""
-    for _, r in current_df.iterrows():
-        html_rows += f"<tr>"
-        html_rows += f"<td style='padding:10px; border:1px solid #cbd5e1;'>{r['Admission Number']}</td>"
-        html_rows += f"<td style='padding:10px; border:1px solid #cbd5e1;'>{r['Student Name']}</td>"
-        html_rows += f"<td style='padding:10px; border:1px solid #cbd5e1;'>{r['Selected Items']}</td>"
-        html_rows += f"</tr>"
-        
-    html_report = f"""
-    <html><body>
-        <h2 style='color:#1e3a8a; text-align:center;'>🏆 SKPS Youth Festival SUVARNAM2k26</h2>
-        <h4 style='color:#64748b; text-align:center;'>Official Consolidated Registration Ledger</h4>
-        <table style='width:100%; border-collapse:collapse; margin-top:15px;'>
-            <thead><tr style='background-color:#1e3a8a; color:white;'>
-                <th style='padding:12px; text-align:left;'>Admission No.</th>
-                <th style='padding:12px; text-align:left;'>Student Name</th>
-                <th style='padding:12px; text-align:left;'>Registered Items Selection Directory</th>
-            </tr></thead>
-            <tbody>{html_rows}</tbody>
-        </table>
-    </body></html>
-    """
-    
-    sender = st.secrets["email"]["sender_address"]
-    password = st.secrets["email"]["sender_password"]
-    receiver = st.secrets["email"]["receiver_address"]
-    
-    msg = MIMEMultipart('alternative')
-    msg['Subject'] = "🏆 SUVARNAM2k26 Real-Time Registration Table"
-    msg['From'] = sender
-    msg['To'] = receiver
-    msg.attach(MIMEText(html_report, 'html'))
-    
-    # Try primary secure server line first, fallback instantly if cloud nodes glitch out
-    try:
-        server = smtplib.SMTP("://gmail.com", 587, timeout=15)
-        server.starttls()
-    except Exception:
-        server = smtplib.SMTP("://gmail.com", 587, timeout=15)
-        server.starttls()
-        
-    server.login(sender, password)
-    server.sendmail(sender, receiver, msg.as_string())
-    server.quit()
-    st.success(f"🚀 Success! The live registrations ledger has been emailed directly to {receiver}")
+    pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"]).to_csv(DATA_FILE, index=False)
 
-        server.starttls()
-        
-    server.login(sender, password)
-    server.sendmail(sender, receiver, msg.as_string())
-    server.quit()
-    st.success(f"🚀 Success! The live registrations ledger has been emailed directly to {receiver}")
+def get_live_registrations():
+    if os.path.exists(DATA_FILE) and os.path.getsize(DATA_FILE) > 10:
+        try:
+            return pd.read_csv(DATA_FILE)
+        except Exception:
+            return pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"])
+    return pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"])
 
 # FAST LOCAL MASTER SHEET LOOKUP
 @st.cache_data(ttl=600)
@@ -212,6 +163,7 @@ else:
                         fresh_live_df['CleanCheck'] = fresh_live_df['Admission Number'].astype(str).fillna('').apply(strict_clean)
                         if search_target in fresh_live_df['CleanCheck'].values:
                             is_fresh_duplicate = True
+                            
                     if is_fresh_duplicate:
                         st.error("Submission blocked. Your registration details were already logged by another portal session.")
                     else:
@@ -228,12 +180,13 @@ else:
                 except Exception as write_err:
                     st.error(f"Failed to record entry locally: {str(write_err)}")
 
-# 🔐 ADMIN DASHBOARD - SECURED DATA BACKUP, REPORTING & CLEANING UTILITY
+# 🔐 ADMIN DASHBOARD - SECURED DATA BACKUP & CLEANING UTILITY
 st.write("---")
 st.subheader("🛠️ Secure Admin Portal")
+# ✅ UPDATED: Password checking parameter configured to match your sequence key directly
 admin_code = st.text_input("Enter Admin Verification Code:", type="password", key="admin_key").strip()
 
-if admin_code == "1111":
+if admin_code == "9633914904":
     st.success("🔑 Code Verified. Admin Options Unlocked.")
     current_live_df = get_live_registrations()
     st.info(f"📊 Live Server Analytics Counter: {len(current_live_df)} secure entries recorded.")
@@ -247,24 +200,16 @@ if admin_code == "1111":
             mime="text/csv",
             use_container_width=True
         )
-    
-    st.write(" ")
-    if st.button("📧 Email Live Master Report Table to Admin Inbox", use_container_width=True):
-        if not current_live_df.empty:
-            try:
-                send_report_email()
-            except Exception as mail_err:
-                st.error(f"Transit pipeline mapping failed: {str(mail_err)}")
-        else:
-            st.warning("Cannot email an empty table. Awaiting incoming submissions.")
             
     st.write(" ")
     if st.button("🔴 Clear & Reset All Registrations (Delete Trial Entries)", use_container_width=True):
         pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"]).to_csv(DATA_FILE, index=False)
         st.session_state["just_registered_target"] = ""
-        st.success("🧹 Local ledger database wiped clean! App restarted safely.")
-        st.rerun()
+        if st.button("🔴 Clear & Reset All Registrations (Delete Trial Entries)", use_container_width=True):
+            pd.DataFrame(columns=["Admission Number", "Student Name", "Selected Items"]).to_csv(DATA_FILE, index=False)
+            st.session_state["just_registered_target"] = ""
+            st.success("🧹 Local ledger database wiped clean! App restarted safely.")
+            st.rerun()
 
 elif admin_code != "":
     st.error("❌ Incorrect Admin Verification Code. Access Restricted.")
-
